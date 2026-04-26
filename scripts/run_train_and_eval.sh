@@ -1,15 +1,31 @@
 #!/usr/bin/env bash
-# Run train + eval + write the eval report. Used as the post-featurize step.
-set -euo pipefail
+# Run train + eval + summary. Used as the post-featurize step.
+#
+# Each phase runs unconditionally; a failure does not abort subsequent phases.
+# Per-phase logs go to artifacts/{train,eval,summary}.log so the user can read
+# each one individually, and a roll-up timeline goes to artifacts/run.log.
+set -uo pipefail
 cd "$(dirname "$0")/.."
 
-echo "[$(date -u +%FT%TZ)] Starting train..."
-uv run python scripts/03_train_baseline.py 2>&1 | tee artifacts/train.log
+ts() { date -u +%FT%TZ; }
+mkdir -p artifacts
+roll_log="artifacts/run.log"
+: >"$roll_log"
 
-echo "[$(date -u +%FT%TZ)] Starting eval report..."
-uv run python scripts/04_eval.py 2>&1 | tee artifacts/eval.log
+run_phase() {
+    local name="$1"; shift
+    local phase_log="artifacts/${name}.log"
+    echo "[$(ts)] >>> ${name}" | tee -a "$roll_log"
+    if "$@" >"$phase_log" 2>&1; then
+        echo "[$(ts)] <<< ${name} OK" | tee -a "$roll_log"
+    else
+        local rc=$?
+        echo "[$(ts)] <<< ${name} FAILED (exit $rc) — see $phase_log" | tee -a "$roll_log"
+    fi
+}
 
-echo "[$(date -u +%FT%TZ)] Writing overnight summary..."
-uv run python scripts/05_overnight_summary.py 2>&1 | tee -a artifacts/eval.log
+run_phase "train"   uv run python scripts/03_train_baseline.py
+run_phase "eval"    uv run python scripts/04_eval.py
+run_phase "summary" uv run python scripts/05_overnight_summary.py
 
-echo "[$(date -u +%FT%TZ)] Done."
+echo "[$(ts)] all phases attempted" | tee -a "$roll_log"
