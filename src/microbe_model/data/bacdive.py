@@ -1,13 +1,12 @@
-"""BacDive REST API client.
+"""BacDive REST API client (v2, public).
 
-BacDive (https://bacdive.dsmz.de/) is the largest curated database of bacterial phenotypes.
-Free registration is required; credentials are read from BACDIVE_USER / BACDIVE_PASSWORD.
+The BacDive v2 API is fully open as of February 2026 — no registration, no auth.
+Documentation: https://api.bacdive.dsmz.de/
 
-This client does the minimum needed for v0:
-  - log in and obtain an OAuth token
-  - paginate through the strain catalog
-  - fetch full records by BacDive ID
-  - extract the phenotype targets we predict (T_opt, pH_opt, oxygen, salt)
+We discover strain IDs by scanning the integer ID space in semicolon-batched fetches
+of up to 100 IDs per call. Missing IDs are silently dropped server-side, so a blind
+scan over [1, MAX_ID] yields every existing record in one pass. At ~150K live IDs
+(as of 2026-04), this takes ~30 minutes single-threaded.
 """
 from __future__ import annotations
 
@@ -21,134 +20,107 @@ import requests
 
 from microbe_model import config
 
-BASE_URL = "https://api.bacdive.dsmz.de"
-TOKEN_URL = "https://sso.dsmz.de/auth/realms/dsmz/protocol/openid-connect/token"
-
-
-class BacDiveAuthError(RuntimeError):
-    pass
+BASE_URL = "https://api.bacdive.dsmz.de/v2"
+BATCH_SIZE = 100  # max IDs per /fetch/ call (server limit)
+DEFAULT_MAX_ID = 200_000  # conservative upper bound; live max is ~160K-180K as of 2026-04
 
 
 class BacDiveClient:
-    def __init__(self, user: str | None = None, password: str | None = None) -> None:
-        self.user = user or config.BACDIVE_USER
-        self.password = password or config.BACDIVE_PASSWORD
-        if not self.user or not self.password:
-            raise BacDiveAuthError(
-                "Set BACDIVE_USER and BACDIVE_PASSWORD in .env (register at bacdive.dsmz.de)."
-            )
-        self._token: str | None = None
-        self._token_expires_at: float = 0.0
+    def __init__(self, *, request_timeout: int = 60, retry_sleep_s: float = 1.0) -> None:
         self._session = requests.Session()
-
-    def _refresh_token(self) -> None:
-        resp = self._session.post(
-            TOKEN_URL,
-            data={
-                "grant_type": "password",
-                "client_id": "api.bacdive.public",
-                "username": self.user,
-                "password": self.password,
-            },
-            timeout=30,
-        )
-        if resp.status_code != 200:
-            raise BacDiveAuthError(f"BacDive auth failed: {resp.status_code} {resp.text}")
-        body = resp.json()
-        self._token = body["access_token"]
-        self._token_expires_at = time.time() + body.get("expires_in", 300) - 30
-
-    def _headers(self) -> dict[str, str]:
-        if self._token is None or time.time() >= self._token_expires_at:
-            self._refresh_token()
-        return {"Authorization": f"Bearer {self._token}", "Accept": "application/json"}
+        self.timeout = request_timeout
+        self.retry_sleep_s = retry_sleep_s
 
     def _get(self, path: str, params: dict | None = None) -> dict[str, Any]:
         url = f"{BASE_URL}{path}"
         for attempt in range(3):
-            resp = self._session.get(url, headers=self._headers(), params=params, timeout=60)
+            resp = self._session.get(url, params=params, timeout=self.timeout)
             if resp.status_code == 429:
-                time.sleep(2 ** attempt)
+                time.sleep(self.retry_sleep_s * (attempt + 1))
                 continue
             resp.raise_for_status()
             return resp.json()
         resp.raise_for_status()
         return {}
 
-    def iter_strain_ids(self, limit: int | None = None) -> Iterator[int]:
-        """Page through the BacDive catalog and yield strain IDs."""
-        page_url: str | None = "/fetch/"
-        seen = 0
-        while page_url:
-            body = self._get(page_url)
-            for record in body.get("results", []):
-                yield int(record["id"])
-                seen += 1
-                if limit is not None and seen >= limit:
-                    return
-            next_url = body.get("next")
-            if not next_url:
-                return
-            page_url = next_url.replace(BASE_URL, "")
+    def fetch_batch(self, ids: list[int]) -> dict[int, dict[str, Any]]:
+        """Fetch up to BATCH_SIZE strain records in a single call.
 
-    def fetch_record(self, bacdive_id: int) -> dict[str, Any]:
-        body = self._get(f"/fetch/{bacdive_id}")
-        results = body.get("results") or {}
-        if isinstance(results, list):
-            return results[0] if results else {}
-        if isinstance(results, dict) and str(bacdive_id) in results:
-            return results[str(bacdive_id)]
-        return results
+        Returns a {bacdive_id: record} mapping. Missing IDs are absent from the result.
+        """
+        if not ids:
+            return {}
+        if len(ids) > BATCH_SIZE:
+            raise ValueError(f"Batch size {len(ids)} exceeds server limit {BATCH_SIZE}")
+        path = f"/fetch/{';'.join(str(i) for i in ids)}"
+        body = self._get(path)
+        results = body.get("results")
+        if isinstance(results, dict):
+            return {int(k): v for k, v in results.items()}
+        return {}
+
+    def iter_records(
+        self,
+        *,
+        start: int = 1,
+        end: int = DEFAULT_MAX_ID,
+        batch_size: int = BATCH_SIZE,
+    ) -> Iterator[tuple[int, dict[str, Any]]]:
+        """Scan the BacDive ID range and yield (id, record) for every existing strain."""
+        for batch_start in range(start, end + 1, batch_size):
+            batch_end = min(batch_start + batch_size - 1, end)
+            ids = list(range(batch_start, batch_end + 1))
+            records = self.fetch_batch(ids)
+            yield from sorted(records.items())
+
+
+def cache_path(bacdive_id: int) -> Path:
+    return config.BACDIVE_DIR / f"{bacdive_id}.json"
+
+
+def cache_record(bacdive_id: int, record: dict[str, Any]) -> Path:
+    path = cache_path(bacdive_id)
+    path.write_text(json.dumps(record))
+    return path
+
+
+def load_cached(bacdive_id: int) -> dict[str, Any] | None:
+    path = cache_path(bacdive_id)
+    if not path.exists():
+        return None
+    return json.loads(path.read_text())
 
 
 def extract_phenotypes(record: dict[str, Any]) -> dict[str, Any]:
-    """Pull the v0 prediction targets out of a BacDive record.
+    """Pull the v0 prediction targets out of a BacDive v2 record.
 
-    BacDive's record schema is deeply nested and field names vary across record versions.
-    We tolerate missing fields — anything we can't find becomes None and is dropped at training time.
+    Field locations (verified against live API on 2026-04-26):
+      - General → BacDive-ID
+      - Name and taxonomic classification → species, genus, family
+      - Culture and growth conditions → culture temp[] (type ∈ {growth, optimum, range, no growth})
+      - Culture and growth conditions → culture pH[] (same shape)
+      - Physiology and metabolism → oxygen tolerance[]
+      - Physiology and metabolism → halophily[]
+      - Sequence information → Genome sequences[].INSDC accession
     """
+    general = record.get("General") or {}
+    taxon = record.get("Name and taxonomic classification") or {}
+    culture = record.get("Culture and growth conditions") or {}
+    physio = record.get("Physiology and metabolism") or {}
+    seq = record.get("Sequence information") or {}
+
     out: dict[str, Any] = {
-        "bacdive_id": record.get("General", {}).get("BacDive-ID"),
-        "species": record.get("Name and taxonomic classification", {}).get("species"),
-        "ncbi_taxon_id": record.get("General", {}).get("NCBI tax id"),
-        "optimal_temperature_c": None,
-        "optimal_ph": None,
-        "oxygen_requirement": None,
-        "salt_tolerance_pct": None,
-        "genome_accession": None,
+        "bacdive_id": general.get("BacDive-ID"),
+        "species": taxon.get("species"),
+        "genus": taxon.get("genus"),
+        "family": (taxon.get("LPSN") or {}).get("family") or taxon.get("family"),
+        "ncbi_taxon_id": _first_ncbi_tax_id(general.get("NCBI tax id")),
+        "optimal_temperature_c": _derive_optimum(_as_list(culture.get("culture temp")), "temperature"),
+        "optimal_ph": _derive_optimum(_as_list(culture.get("culture pH")), "pH"),
+        "oxygen_requirement": _first_value(_as_list(physio.get("oxygen tolerance")), "oxygen tolerance"),
+        "salt_tolerance_pct": _derive_salt(physio.get("halophily")),
+        "genome_accession": _first_genome_accession(seq.get("Genome sequences")),
     }
-
-    culture = record.get("Culture and growth conditions", {})
-    temps = _as_list(culture.get("culture temp"))
-    for t in temps:
-        if isinstance(t, dict) and t.get("type", "").lower() in {"optimum", "optimal"}:
-            out["optimal_temperature_c"] = _to_float(t.get("temperature"))
-            break
-
-    phs = _as_list(culture.get("culture pH"))
-    for p in phs:
-        if isinstance(p, dict) and p.get("type", "").lower() in {"optimum", "optimal"}:
-            out["optimal_ph"] = _to_float(p.get("pH"))
-            break
-
-    physio = record.get("Physiology and metabolism", {})
-    oxygen = _as_list(physio.get("oxygen tolerance"))
-    if oxygen and isinstance(oxygen[0], dict):
-        out["oxygen_requirement"] = oxygen[0].get("oxygen tolerance")
-
-    salt = _as_list(physio.get("halophily"))
-    for s in salt:
-        if isinstance(s, dict) and "concentration" in s:
-            out["salt_tolerance_pct"] = _to_float(s.get("concentration"))
-            break
-
-    seq = record.get("Sequence information", {})
-    genomes = _as_list(seq.get("genome sequence"))
-    for g in genomes:
-        if isinstance(g, dict) and g.get("accession"):
-            out["genome_accession"] = g["accession"]
-            break
-
     return out
 
 
@@ -163,20 +135,89 @@ def _as_list(x: Any) -> list:
 def _to_float(x: Any) -> float | None:
     if x is None:
         return None
+    s = str(x).strip()
+    if not s:
+        return None
+    if "-" in s and not s.startswith("-"):
+        # e.g. "5-30" — return midpoint
+        parts = s.split("-")
+        try:
+            lo, hi = float(parts[0]), float(parts[1])
+            return (lo + hi) / 2
+        except (ValueError, IndexError):
+            return None
     try:
-        return float(str(x).split()[0])
+        return float(s.split()[0])
     except (ValueError, AttributeError):
         return None
 
 
-def cache_path(bacdive_id: int) -> Path:
-    return config.BACDIVE_DIR / f"{bacdive_id}.json"
+def _derive_optimum(entries: list, value_key: str) -> float | None:
+    """Find an optimum for a temperature- or pH-like list of {type, value} entries.
+
+    Preference order:
+      1. type == "optimum" (exact)
+      2. median of "positive growth" entries
+      3. None
+    """
+    optima = []
+    growth = []
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        etype = (entry.get("type") or "").lower()
+        value = _to_float(entry.get(value_key))
+        if value is None:
+            continue
+        is_positive = (entry.get("growth") or "").lower() in {"positive", "yes", "+", "true"}
+        if "optim" in etype:
+            optima.append(value)
+        elif etype == "growth" and is_positive:
+            growth.append(value)
+    if optima:
+        return sum(optima) / len(optima)
+    if growth:
+        sorted_g = sorted(growth)
+        n = len(sorted_g)
+        return sorted_g[n // 2] if n % 2 else (sorted_g[n // 2 - 1] + sorted_g[n // 2]) / 2
+    return None
 
 
-def fetch_with_cache(client: BacDiveClient, bacdive_id: int) -> dict[str, Any]:
-    path = cache_path(bacdive_id)
-    if path.exists():
-        return json.loads(path.read_text())
-    record = client.fetch_record(bacdive_id)
-    path.write_text(json.dumps(record))
-    return record
+def _first_value(entries: list, key: str) -> str | None:
+    for entry in entries:
+        if isinstance(entry, dict) and entry.get(key):
+            return str(entry[key])
+    return None
+
+
+def _derive_salt(halophily: Any) -> float | None:
+    for entry in _as_list(halophily):
+        if not isinstance(entry, dict):
+            continue
+        for field in ("concentration", "salt concentration", "tested relation"):
+            value = _to_float(entry.get(field))
+            if value is not None:
+                return value
+    return None
+
+
+def _first_genome_accession(genome_entries: Any) -> str | None:
+    for entry in _as_list(genome_entries):
+        if isinstance(entry, dict):
+            for key in ("INSDC accession", "NCBI accession", "accession"):
+                value = entry.get(key)
+                if value:
+                    return str(value)
+    return None
+
+
+def _first_ncbi_tax_id(tax: Any) -> int | None:
+    for entry in _as_list(tax):
+        if isinstance(entry, dict):
+            value = entry.get("NCBI tax id")
+            if value is not None:
+                try:
+                    return int(value)
+                except (ValueError, TypeError):
+                    continue
+    return None

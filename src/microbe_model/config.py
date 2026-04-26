@@ -19,8 +19,6 @@ FEATURE_DIR = DATA / "features"
 for _d in (DATA, ARTIFACTS, BACDIVE_DIR, GENOME_DIR, FEATURE_DIR):
     _d.mkdir(parents=True, exist_ok=True)
 
-BACDIVE_USER = os.environ.get("BACDIVE_USER")
-BACDIVE_PASSWORD = os.environ.get("BACDIVE_PASSWORD")
 NCBI_API_KEY = os.environ.get("NCBI_API_KEY")
 
 PHENOTYPE_TARGETS = {

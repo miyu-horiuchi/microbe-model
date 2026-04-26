@@ -44,8 +44,9 @@ uv sync --all-extras
 
 ```bash
 # 1. Pull strain metadata + phenotype labels from BacDive
-#    (requires BACDIVE_USER and BACDIVE_PASSWORD env vars — register at bacdive.dsmz.de)
-uv run python scripts/01_fetch_bacdive.py --limit 1000
+#    (BacDive v2 API is public as of Feb 2026 — no registration needed)
+uv run python scripts/01_fetch_bacdive.py --end 5000          # smoke test, ~5 min
+# uv run python scripts/01_fetch_bacdive.py --end 200000      # full BacDive, ~30 min
 
 # 2. Download genomes for strains that have an accession
 uv run python scripts/02_fetch_genomes.py
@@ -89,5 +90,6 @@ These are deliberate v0 boundaries. See the project notes for the longer-term pl
 
 Copy `.env.example` to `.env` and fill in:
 
-- `BACDIVE_USER`, `BACDIVE_PASSWORD` — required for BacDive API access (free registration).
 - `NCBI_API_KEY` — optional, raises NCBI rate limit from 3 req/s to 10 req/s.
+
+(BacDive's v2 API was opened to the public in February 2026 — no registration or token needed.)
