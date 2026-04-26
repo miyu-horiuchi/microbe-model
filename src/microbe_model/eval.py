@@ -1,0 +1,156 @@
+"""Evaluation report generation.
+
+Renders a markdown report from a trained-results JSON (the output of train/baseline.py)
+joined with the source dataset. Designed to be readable cold — every number includes
+a comparison baseline so the reader can interpret it without context.
+"""
+from __future__ import annotations
+
+import json
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any
+
+import numpy as np
+import pandas as pd
+
+from microbe_model import config
+
+
+def _baseline_mae(y: np.ndarray) -> float:
+    """MAE of the always-predict-mean baseline (sanity floor)."""
+    if len(y) == 0:
+        return float("nan")
+    return float(np.mean(np.abs(y - np.mean(y))))
+
+
+def _baseline_f1(y: np.ndarray) -> float:
+    """Macro-F1 of the always-predict-majority baseline."""
+    from sklearn.metrics import f1_score
+    if len(y) == 0:
+        return float("nan")
+    values, counts = np.unique(y, return_counts=True)
+    majority = values[np.argmax(counts)]
+    pred = np.full_like(y, majority)
+    return float(f1_score(y, pred, average="macro"))
+
+
+def render_report(
+    results_path: Path,
+    dataset_path: Path,
+    out_path: Path,
+    *,
+    n_strains: int | None = None,
+    runtime_seconds: float | None = None,
+) -> None:
+    results: dict[str, Any] = json.loads(results_path.read_text())
+    df = pd.read_parquet(dataset_path)
+
+    lines: list[str] = []
+    lines.append("# microbe-model — v0 baseline eval report")
+    lines.append("")
+    lines.append(f"_Generated: {datetime.now(UTC).isoformat(timespec='seconds')}_")
+    lines.append("")
+
+    # Section: corpus
+    lines.append("## Corpus")
+    lines.append("")
+    lines.append(f"- Total strains in feature table: **{len(df):,}**")
+    if n_strains is not None:
+        lines.append(f"- Total strains attempted (had genome accession + label): {n_strains:,}")
+        lines.append(f"- Feature-extraction success rate: {100 * len(df) / max(1, n_strains):.1f}%")
+    if runtime_seconds is not None:
+        lines.append(f"- Featurize wall time: {runtime_seconds / 60:.1f} min")
+    lines.append("")
+
+    # Section: per-target results
+    lines.append("## Per-target results (5-fold GroupKFold by family)")
+    lines.append("")
+    lines.append("Metrics: regression = MAE (lower is better), classification = macro-F1 (higher is better).")
+    lines.append("Each is shown alongside the dumb-baseline (always-predict-mean / always-predict-majority).")
+    lines.append("")
+    lines.append("| Target | Task | n labeled | Model metric | Baseline | Improvement |")
+    lines.append("|---|---|---|---|---|---|")
+    for target, r in results.items():
+        if not r["folds"]:
+            lines.append(f"| {target} | {r['task']} | — | _skipped (insufficient data)_ | — | — |")
+            continue
+        y = df[target].dropna().to_numpy()
+        n_labeled = len(y)
+        if r["task"] == "regression":
+            baseline = _baseline_mae(y.astype(float))
+            mean = r["mean_metric"]
+            improvement = f"{(baseline - mean) / baseline * 100:+.1f}%"
+            lines.append(f"| `{target}` | regression | {n_labeled:,} | "
+                         f"MAE={mean:.3f} | MAE={baseline:.3f} | {improvement} |")
+        else:
+            baseline = _baseline_f1(y)
+            mean = r["mean_metric"]
+            improvement = f"{(mean - baseline) / max(0.01, baseline) * 100:+.1f}%"
+            lines.append(f"| `{target}` | classification | {n_labeled:,} | "
+                         f"F1={mean:.3f} | F1={baseline:.3f} | {improvement} |")
+    lines.append("")
+
+    # Section: per-fold detail
+    for target, r in results.items():
+        if not r["folds"]:
+            continue
+        lines.append(f"### `{target}` — fold-by-fold")
+        lines.append("")
+        lines.append("| Fold | Metric | Train | Test |")
+        lines.append("|---|---|---|---|")
+        for i, f in enumerate(r["folds"]):
+            lines.append(f"| {i+1} | {f['metric_name']} = {f['value']:.3f} | "
+                         f"n={f['n_train']:,} | n={f['n_test']:,} |")
+        lines.append("")
+
+        top = r.get("top_features", {})
+        if top:
+            lines.append(f"**Top 10 features for `{target}`:**")
+            lines.append("")
+            for name, importance in list(top.items())[:10]:
+                lines.append(f"- `{name}` — {importance:.4f}")
+            lines.append("")
+
+    # Section: limitations
+    lines.append("## Known limitations")
+    lines.append("")
+    lines.append("- **Survivorship bias.** BacDive only contains organisms that have been cultured "
+                 "successfully at least once. The model cannot generalize to truly uncultured strains "
+                 "without explicit out-of-distribution evaluation.")
+    lines.append("- **Optimum derivation is heuristic.** Most BacDive temperature entries are tagged "
+                 "as `growth` (positive growth at this temperature), not `optimum`. We approximate "
+                 "the optimum as the median of positive-growth temperatures when no explicit "
+                 "optimum is recorded — this can be off by 5°C or more for some strains.")
+    lines.append("- **Family grouping is naive.** The current `family` column is derived from the "
+                 "genus (first word of binomial name). A proper LPSN/GTDB family assignment would "
+                 "give tighter taxonomic grouping.")
+    lines.append("- **Feature set is shallow.** No HMM/KEGG annotations, no codon usage indices, no "
+                 "tRNA counts. These are interpretable next steps before moving to genome LMs.")
+    lines.append("- **Pyrodigal accuracy.** Gene prediction quality drops on highly-fragmented "
+                 "assemblies and atypical genetic codes. Not currently flagged in the feature set.")
+    lines.append("")
+
+    # Section: next steps
+    lines.append("## Next steps")
+    lines.append("")
+    lines.append("1. **Add tetranucleotide / codon-usage features.** ~50 extra columns, "
+                 "well-known signal for thermophily.")
+    lines.append("2. **Replace naive family lookup with LPSN/GTDB join.** Reduces leakage in CV.")
+    lines.append("3. **Integrate KOMODO media DB** as a richer label source than BacDive alone.")
+    lines.append("4. **Move to genome embeddings** (Nucleotide Transformer / Evo-1 / DNABERT-2) "
+                 "once the tabular ceiling is established.")
+    lines.append("5. **Active learning loop**: select novel-family strains where the model is "
+                 "uncertain, prioritize these for wet-lab cultivation testing.")
+    lines.append("")
+
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text("\n".join(lines))
+
+
+if __name__ == "__main__":
+    render_report(
+        results_path=config.ARTIFACTS / "baseline_results.json",
+        dataset_path=config.DATA / "training_table.parquet",
+        out_path=config.ARTIFACTS / "eval_report.md",
+    )

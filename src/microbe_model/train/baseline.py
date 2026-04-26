@@ -120,12 +120,18 @@ def train_target(
     return result
 
 
-def train_all(df: pd.DataFrame, feature_cols: list[str]) -> dict[str, TargetResult]:
+def train_all(
+    df: pd.DataFrame,
+    feature_cols: list[str],
+    *,
+    group_col_override: str | None = None,
+) -> dict[str, TargetResult]:
     results: dict[str, TargetResult] = {}
+    group_col = group_col_override or "family"
     for target, task in config.PHENOTYPE_TARGETS.items():
         if target not in df.columns:
             continue
-        results[target] = train_target(df, target, task, feature_cols)
+        results[target] = train_target(df, target, task, feature_cols, group_col=group_col)
     return results
 
 
