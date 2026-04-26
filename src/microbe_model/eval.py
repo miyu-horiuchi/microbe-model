@@ -174,6 +174,33 @@ def render_report(
                 lines.append(f"- `{name}` — {importance:.4f}")
             lines.append("")
 
+    # Section: feature-target correlations (data-exploration sanity check)
+    feature_cols = [
+        c for c in df.columns
+        if c.startswith(("aa_frac_", "genome_size", "gc_", "n_predicted", "coding_",
+                          "mean_", "aromatic_", "pos_", "neg_", "ivywrel_", "median_"))
+    ]
+    if feature_cols:
+        from microbe_model.explore import feature_target_correlations
+        lines.append("## Feature ↔ target correlations (Spearman, top 10)")
+        lines.append("")
+        lines.append("Sanity-checks the biology — features known to track each target should "
+                     "appear here at high |ρ|. E.g. `ivywrel_frac` should correlate with "
+                     "`optimal_temperature_c` (Zeldovich 2007 thermophile signature).")
+        lines.append("")
+        for target in ("optimal_temperature_c", "optimal_ph", "salt_tolerance_pct"):
+            corrs = feature_target_correlations(df, feature_cols, target, top_n=10)
+            if not corrs:
+                continue
+            lines.append(f"### `{target}`")
+            lines.append("")
+            lines.append("| Feature | Spearman ρ | p-value |")
+            lines.append("|---|---|---|")
+            for row in corrs:
+                lines.append(f"| `{row['feature']}` | {row['spearman_rho']:+.3f} | "
+                             f"{row['p_value']:.1e} |")
+            lines.append("")
+
     # Section: per-phylum error breakdown (regression targets only)
     if predictions is not None and not predictions.empty and "row_idx" in predictions.columns:
         joined = predictions.merge(
