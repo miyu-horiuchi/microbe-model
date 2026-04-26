@@ -60,10 +60,9 @@ def train_target(
         return TargetResult(target=target, task=task)
 
     if task == "classification":
-        encoder = LabelEncoder()
-        y_enc = encoder.fit_transform(y.astype(str))
+        y_str = y.astype(str).to_numpy()
     else:
-        y_enc = y.to_numpy(dtype=float)
+        y_arr = y.to_numpy(dtype=float)
 
     n_unique_groups = groups.nunique()
     splits = min(n_splits, max(2, n_unique_groups))
@@ -73,11 +72,21 @@ def train_target(
     importance_acc = np.zeros(len(feature_cols), dtype=float)
     fold_count = 0
 
-    for tr_idx, te_idx in kfold.split(X, y_enc, groups):
+    split_iter = kfold.split(X, y_str if task == "classification" else y_arr, groups)
+    for tr_idx, te_idx in split_iter:
         if task == "classification":
-            n_classes = len(np.unique(y_enc[tr_idx]))
-            if n_classes < 2:
+            # Per-fold encoding: ensures contiguous 0..k-1 labels for xgboost.
+            # Test samples whose class never appears in train are dropped from eval.
+            fold_encoder = LabelEncoder()
+            y_tr = fold_encoder.fit_transform(y_str[tr_idx])
+            if len(fold_encoder.classes_) < 2:
                 continue
+            known = set(fold_encoder.classes_)
+            te_mask = np.array([c in known for c in y_str[te_idx]])
+            if te_mask.sum() == 0:
+                continue
+            y_te = fold_encoder.transform(y_str[te_idx][te_mask])
+
             model = xgb.XGBClassifier(
                 n_estimators=300,
                 max_depth=5,
@@ -86,10 +95,11 @@ def train_target(
                 n_jobs=-1,
                 eval_metric="mlogloss",
             )
-            model.fit(X.iloc[tr_idx], y_enc[tr_idx])
-            preds = model.predict(X.iloc[te_idx])
-            score = f1_score(y_enc[te_idx], preds, average="macro")
+            model.fit(X.iloc[tr_idx], y_tr)
+            preds = model.predict(X.iloc[te_idx][te_mask])
+            score = f1_score(y_te, preds, average="macro")
             metric = "f1_macro"
+            n_test = int(te_mask.sum())
         else:
             model = xgb.XGBRegressor(
                 n_estimators=500,
@@ -98,10 +108,11 @@ def train_target(
                 tree_method="hist",
                 n_jobs=-1,
             )
-            model.fit(X.iloc[tr_idx], y_enc[tr_idx])
+            model.fit(X.iloc[tr_idx], y_arr[tr_idx])
             preds = model.predict(X.iloc[te_idx])
-            score = mean_absolute_error(y_enc[te_idx], preds)
+            score = mean_absolute_error(y_arr[te_idx], preds)
             metric = "mae"
+            n_test = int(len(te_idx))
 
         result.folds.append(FoldResult(
             target=target,
@@ -109,7 +120,7 @@ def train_target(
             metric_name=metric,
             value=float(score),
             n_train=int(len(tr_idx)),
-            n_test=int(len(te_idx)),
+            n_test=n_test,
         ))
         importance_acc += model.feature_importances_
         fold_count += 1
