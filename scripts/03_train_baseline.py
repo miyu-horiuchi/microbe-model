@@ -46,7 +46,9 @@ def main() -> None:
     results = train_all(df, feature_cols, group_col_override="group")
 
     out = config.ARTIFACTS / "baseline_results.json"
-    save_results(results, out)
+    predictions_out = config.ARTIFACTS / "predictions.parquet"
+    save_results(results, out, predictions_path=predictions_out)
+    print(f"Wrote per-strain predictions to {predictions_out}")
 
     print(f"\nResults summary ({time.time() - t0:.1f}s):\n")
     for target, r in results.items():

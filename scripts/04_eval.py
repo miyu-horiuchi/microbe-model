@@ -15,7 +15,13 @@ def main() -> None:
     if not dataset_path.exists():
         raise SystemExit(f"Missing {dataset_path}. Run scripts/03_train_baseline.py first.")
 
-    render_report(results_path, dataset_path, out_path)
+    predictions_path = config.ARTIFACTS / "predictions.parquet"
+    render_report(
+        results_path,
+        dataset_path,
+        out_path,
+        predictions_path=predictions_path if predictions_path.exists() else None,
+    )
     print(f"Wrote {out_path}")
 
 

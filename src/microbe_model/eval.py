@@ -42,14 +42,50 @@ def render_report(
     *,
     n_strains: int | None = None,
     runtime_seconds: float | None = None,
+    predictions_path: Path | None = None,
 ) -> None:
     results: dict[str, Any] = json.loads(results_path.read_text())
     df = pd.read_parquet(dataset_path)
+    predictions = (
+        pd.read_parquet(predictions_path)
+        if predictions_path is not None and predictions_path.exists()
+        else None
+    )
 
     lines: list[str] = []
     lines.append("# microbe-model — v0 baseline eval report")
     lines.append("")
     lines.append(f"_Generated: {datetime.now(UTC).isoformat(timespec='seconds')}_")
+    lines.append("")
+
+    # Section: TL;DR — the headline number
+    lines.append("## TL;DR")
+    lines.append("")
+    headline_lines = []
+    for target, r in results.items():
+        if not r["folds"]:
+            continue
+        y = df[target].dropna().to_numpy()
+        if r["task"] == "regression":
+            baseline = _baseline_mae(y.astype(float))
+            improvement = (baseline - r["mean_metric"]) / max(0.001, baseline) * 100
+            headline_lines.append(
+                f"- **`{target}`**: MAE = **{r['mean_metric']:.2f}** "
+                f"(vs always-predict-mean {baseline:.2f}, **{improvement:+.0f}%**)"
+            )
+        else:
+            baseline = _baseline_f1(y)
+            improvement = (r["mean_metric"] - baseline) / max(0.001, baseline) * 100
+            headline_lines.append(
+                f"- **`{target}`**: macro-F1 = **{r['mean_metric']:.3f}** "
+                f"(vs always-predict-majority {baseline:.3f}, **{improvement:+.0f}%**)"
+            )
+    lines.extend(headline_lines if headline_lines else [
+        "- _No targets trained successfully — see logs._"
+    ])
+    lines.append("")
+    lines.append(f"Trained on **{len(df):,}** strains with **{len([c for c in df.columns if c.startswith(('aa_frac_', 'genome_size', 'gc_', 'n_predicted', 'coding_', 'mean_', 'aromatic_', 'pos_', 'neg_', 'ivywrel_', 'median_'))])}** genome-derived features. "
+                 f"Cross-validation: 5-fold GroupKFold by taxonomic family.")
     lines.append("")
 
     # Section: corpus
@@ -61,6 +97,32 @@ def render_report(
         lines.append(f"- Feature-extraction success rate: {100 * len(df) / max(1, n_strains):.1f}%")
     if runtime_seconds is not None:
         lines.append(f"- Featurize wall time: {runtime_seconds / 60:.1f} min")
+    # Per-target label counts
+    lines.append("- Labeled-strain counts by target:")
+    for target in ("optimal_temperature_c", "optimal_ph", "oxygen_requirement", "salt_tolerance_pct"):
+        if target in df.columns:
+            n = df[target].notna().sum()
+            lines.append(f"  - `{target}`: {n:,}")
+    lines.append("")
+
+    # Section: data exploration — distributions of the regression targets
+    lines.append("## Target distributions")
+    lines.append("")
+    for target in ("optimal_temperature_c", "optimal_ph", "salt_tolerance_pct"):
+        if target not in df.columns:
+            continue
+        y = df[target].dropna()
+        if len(y) == 0:
+            continue
+        lines.append(
+            f"- `{target}`: n={len(y):,}, mean={y.mean():.2f}, "
+            f"std={y.std():.2f}, p10={y.quantile(0.1):.2f}, "
+            f"median={y.median():.2f}, p90={y.quantile(0.9):.2f}"
+        )
+    if "oxygen_requirement" in df.columns:
+        lines.append("- `oxygen_requirement`:")
+        for cls, n in df["oxygen_requirement"].value_counts().head(10).items():
+            lines.append(f"  - `{cls}`: {n:,}")
     lines.append("")
 
     # Section: per-target results
@@ -112,6 +174,40 @@ def render_report(
                 lines.append(f"- `{name}` — {importance:.4f}")
             lines.append("")
 
+    # Section: per-phylum error breakdown (regression targets only)
+    if predictions is not None and not predictions.empty and "row_idx" in predictions.columns:
+        joined = predictions.merge(
+            df[["genus", "family"]].rename_axis("row_idx").reset_index(),
+            on="row_idx",
+            how="left",
+        )
+        regression_preds = joined[joined["task"] == "regression"]
+        if not regression_preds.empty:
+            lines.append("## Per-family error breakdown (regression targets)")
+            lines.append("")
+            lines.append("Top 15 most-represented families, MAE per family. Highlights where the "
+                         "model is doing well vs. struggling.")
+            lines.append("")
+            for target in regression_preds["target"].unique():
+                sub = regression_preds[regression_preds["target"] == target].copy()
+                sub["abs_error"] = (
+                    pd.to_numeric(sub["predicted"]) - pd.to_numeric(sub["observed"])
+                ).abs()
+                grp = (sub.groupby("family", dropna=False)
+                       .agg(n=("abs_error", "size"), mae=("abs_error", "mean"))
+                       .sort_values("n", ascending=False)
+                       .head(15))
+                if grp.empty:
+                    continue
+                lines.append(f"### `{target}`")
+                lines.append("")
+                lines.append("| Family | n | MAE |")
+                lines.append("|---|---|---|")
+                for fam, row in grp.iterrows():
+                    fam_label = fam if pd.notna(fam) else "_(no family)_"
+                    lines.append(f"| {fam_label} | {int(row['n'])} | {row['mae']:.3f} |")
+                lines.append("")
+
     # Section: limitations
     lines.append("## Known limitations")
     lines.append("")
@@ -153,4 +249,5 @@ if __name__ == "__main__":
         results_path=config.ARTIFACTS / "baseline_results.json",
         dataset_path=config.DATA / "training_table.parquet",
         out_path=config.ARTIFACTS / "eval_report.md",
+        predictions_path=config.ARTIFACTS / "predictions.parquet",
     )

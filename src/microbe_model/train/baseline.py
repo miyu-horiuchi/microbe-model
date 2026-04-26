@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -36,6 +37,7 @@ class TargetResult:
     task: str
     folds: list[FoldResult] = field(default_factory=list)
     importances: dict[str, float] = field(default_factory=dict)
+    predictions: pd.DataFrame | None = None  # one row per test-fold sample
 
     def mean(self) -> float:
         return float(np.mean([f.value for f in self.folds])) if self.folds else float("nan")
@@ -71,9 +73,10 @@ def train_target(
     result = TargetResult(target=target, task=task)
     importance_acc = np.zeros(len(feature_cols), dtype=float)
     fold_count = 0
+    pred_rows: list[dict[str, Any]] = []
 
     split_iter = kfold.split(X, y_str if task == "classification" else y_arr, groups)
-    for tr_idx, te_idx in split_iter:
+    for fold_idx, (tr_idx, te_idx) in enumerate(split_iter):
         if task == "classification":
             # Per-fold encoding: ensures contiguous 0..k-1 labels for xgboost.
             # Test samples whose class never appears in train are dropped from eval.
@@ -100,6 +103,14 @@ def train_target(
             score = f1_score(y_te, preds, average="macro")
             metric = "f1_macro"
             n_test = int(te_mask.sum())
+            test_indices = X.iloc[te_idx].index[te_mask]
+            pred_labels = fold_encoder.inverse_transform(preds)
+            obs_labels = y_str[te_idx][te_mask]
+            for idx, p, o in zip(test_indices, pred_labels, obs_labels, strict=True):
+                pred_rows.append({
+                    "fold": fold_idx, "row_idx": int(idx),
+                    "predicted": str(p), "observed": str(o),
+                })
         else:
             model = xgb.XGBRegressor(
                 n_estimators=500,
@@ -113,6 +124,12 @@ def train_target(
             score = mean_absolute_error(y_arr[te_idx], preds)
             metric = "mae"
             n_test = int(len(te_idx))
+            test_indices = X.iloc[te_idx].index
+            for idx, p, o in zip(test_indices, preds, y_arr[te_idx], strict=True):
+                pred_rows.append({
+                    "fold": fold_idx, "row_idx": int(idx),
+                    "predicted": float(p), "observed": float(o),
+                })
 
         result.folds.append(FoldResult(
             target=target,
@@ -128,6 +145,8 @@ def train_target(
     if fold_count:
         importance_acc /= fold_count
         result.importances = dict(zip(feature_cols, importance_acc.tolist(), strict=True))
+    if pred_rows:
+        result.predictions = pd.DataFrame(pred_rows)
     return result
 
 
@@ -146,7 +165,12 @@ def train_all(
     return results
 
 
-def save_results(results: dict[str, TargetResult], path: Path) -> None:
+def save_results(
+    results: dict[str, TargetResult],
+    path: Path,
+    *,
+    predictions_path: Path | None = None,
+) -> None:
     payload = {
         target: {
             "task": r.task,
@@ -159,3 +183,15 @@ def save_results(results: dict[str, TargetResult], path: Path) -> None:
         for target, r in results.items()
     }
     path.write_text(json.dumps(payload, indent=2))
+
+    if predictions_path is not None:
+        frames = []
+        for target, r in results.items():
+            if r.predictions is None or r.predictions.empty:
+                continue
+            df = r.predictions.copy()
+            df["target"] = target
+            df["task"] = r.task
+            frames.append(df)
+        if frames:
+            pd.concat(frames, ignore_index=True).to_parquet(predictions_path, index=False)
