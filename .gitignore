@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Virtual env
+.venv/
+venv/
+.env
+.env.local
+
+# Data / artifacts (large files — kept out of git)
+/data/
+/artifacts/
+/models/
+*.parquet
+*.fna
+*.fna.gz
+*.faa
+*.gbff
+*.gbff.gz
+
+# Notebooks
+.ipynb_checkpoints/
+notebooks/scratch/
+
+# Editor
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Agent / tool state
+.claude/
+.letta/
