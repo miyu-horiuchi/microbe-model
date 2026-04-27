@@ -13,8 +13,10 @@ import pandas as pd
 from microbe_model import config
 from microbe_model.train.media_recommender import (
     build_training_table,
+    save_models,
     save_results,
     train_per_medium,
+    train_production_models,
 )
 
 
@@ -39,7 +41,14 @@ def main() -> None:
 
     out_json = config.ARTIFACTS / "media_recommender_results.json"
     save_results(results, out_json)
-    print(f"Wrote {out_json}\n")
+    print(f"Wrote {out_json}")
+
+    # Train production models on ALL data for inference + persist
+    print("\nFitting production models on full dataset...")
+    prod_models = train_production_models(X, y_matrix)
+    models_dir = config.ROOT / "models" / "recommender"
+    save_models(prod_models, list(X.columns), models_dir)
+    print(f"Saved {len(prod_models)} production models to {models_dir}")
 
     # Headline summary
     rows = [(mid, r.medium_name, r.n_positives, r.n_negatives, r.mean_pr_auc(), r.mean_roc_auc())

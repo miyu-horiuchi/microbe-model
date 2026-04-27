@@ -151,6 +151,64 @@ def train_per_medium(
     return results
 
 
+def train_production_models(
+    X: pd.DataFrame,
+    y_matrix: pd.DataFrame,
+    *,
+    n_estimators: int = 300,
+    max_depth: int = 5,
+) -> dict[str, xgb.XGBClassifier]:
+    """Fit one classifier per medium on ALL data (no CV split). Used at inference.
+
+    Returns {medium_id: trained_model}. Caller is responsible for persistence —
+    see scripts/10_train_media_recommender.py for the disk layout.
+    """
+    models: dict[str, xgb.XGBClassifier] = {}
+    for medium_id in y_matrix.columns:
+        y = y_matrix[medium_id].to_numpy()
+        if y.sum() < 10 or (y == 0).sum() < 10:
+            continue
+        scale_pos_weight = (y == 0).sum() / max(1, y.sum())
+        model = xgb.XGBClassifier(
+            n_estimators=n_estimators,
+            max_depth=max_depth,
+            learning_rate=0.05,
+            tree_method="hist",
+            n_jobs=-1,
+            scale_pos_weight=scale_pos_weight,
+            eval_metric="logloss",
+        )
+        model.fit(X, y)
+        models[str(medium_id)] = model
+    return models
+
+
+def save_models(
+    models: dict[str, xgb.XGBClassifier],
+    feature_cols: list[str],
+    out_dir: Path,
+) -> None:
+    """Save each XGBoost model + feature column order for inference."""
+    out_dir.mkdir(parents=True, exist_ok=True)
+    for medium_id, model in models.items():
+        # Sanitize medium_id for filename safety
+        safe_id = "".join(c if c.isalnum() else "_" for c in medium_id)
+        model.save_model(out_dir / f"medium_{safe_id}.ubj")
+    (out_dir / "feature_cols.json").write_text(json.dumps(feature_cols))
+
+
+def load_models(out_dir: Path) -> tuple[dict[str, xgb.XGBClassifier], list[str]]:
+    """Load all saved per-medium models + the feature-column order."""
+    feature_cols = json.loads((out_dir / "feature_cols.json").read_text())
+    models: dict[str, xgb.XGBClassifier] = {}
+    for path in out_dir.glob("medium_*.ubj"):
+        medium_id = path.stem.removeprefix("medium_")
+        model = xgb.XGBClassifier()
+        model.load_model(path)
+        models[medium_id] = model
+    return models, feature_cols
+
+
 def save_results(results: dict[str, MediumModelResult], path: Path) -> None:
     payload = {
         mid: {
