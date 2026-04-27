@@ -1,6 +1,6 @@
 # Overnight run — summary
 
-_Written 2026-04-27T01:44+00:00_
+_Written 2026-04-27T01:45+00:00_
 
 ## Pipeline status
 
@@ -9,8 +9,8 @@ _Written 2026-04-27T01:44+00:00_
   - 50,384 have optimal_temperature_c labels
   - **17,054** strains are training-ready (genome + T_opt)
 - 🟡 Featurize: in progress (84%)
-  - Processed: 14,309 / 17,094
-  - Successful: 14,283 (99.8%)
+  - Processed: 14,428 / 17,094
+  - Successful: 14,402 (99.8%)
   - Failed: 26 (mostly suppressed/withdrawn NCBI assemblies)
 - ⏭ Training: not yet run (waits for featurize completion)
 - ⏭ Eval report: not yet generated
@@ -30,6 +30,7 @@ _Written 2026-04-27T01:44+00:00_
 
 ## Commits since yesterday
 
+- 2ea77d1 Add v1 composition features (tetranucleotides + codon usage)
 - 316196d Fix predictions parquet type mix + plumb feature_cols through eval
 - 7db9544 Add tests for explore module (correlations + class means)
 - a22773f Harden post-featurize chain: each phase runs even if previous fails

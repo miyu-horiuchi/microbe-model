@@ -181,7 +181,10 @@ def main() -> None:
     lines.append("")
 
     out_path = ROOT / "OVERNIGHT_SUMMARY.md"
-    out_path.write_text("\n".join(lines))
+    # Atomic write — avoid races with the periodic regen loop
+    tmp_path = out_path.with_suffix(".md.tmp")
+    tmp_path.write_text("\n".join(lines))
+    tmp_path.replace(out_path)
     print(f"Wrote {out_path}")
 
 
