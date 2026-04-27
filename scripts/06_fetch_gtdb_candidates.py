@@ -82,7 +82,8 @@ def main() -> None:
             fh, sep="\t", low_memory=False,
             usecols=lambda c: c in {
                 "accession", "gtdb_representative", "gtdb_taxonomy",
-                "ncbi_assembly_accession", "ncbi_organism_name", "checkm_completeness",
+                "ncbi_genbank_assembly_accession", "ncbi_organism_name",
+                "checkm_completeness", "ncbi_assembly_level",
             },
         )
     print(f"Loaded {len(meta):,} GTDB rows")
@@ -90,13 +91,15 @@ def main() -> None:
     representatives = meta[meta["gtdb_representative"] == "t"].copy()
     print(f"{len(representatives):,} are GTDB representatives")
 
-    # Build the bare-accession candidate set
-    representatives["_acc_clean"] = (
-        representatives["ncbi_assembly_accession"]
-        .fillna("")
-        .astype(str)
-        .map(_strip_version)
-    )
+    # Build the bare-accession candidate set (use ncbi_genbank_assembly_accession;
+    # GTDB's `accession` column has GB_/RS_ prefixes — strip them too as a fallback.)
+    def _accession(row: pd.Series) -> str:
+        acc = row.get("ncbi_genbank_assembly_accession")
+        if isinstance(acc, str) and acc.startswith("GCA_"):
+            return _strip_version(acc)
+        return _strip_version(_normalize_accession(row.get("accession", "")))
+
+    representatives["_acc_clean"] = representatives.apply(_accession, axis=1)
     representatives = representatives[representatives["_acc_clean"] != ""]
     not_in_bacdive = representatives[~representatives["_acc_clean"].isin(bacdive_acc)].copy()
     print(f"{len(not_in_bacdive):,} representatives are not in BacDive")
@@ -115,7 +118,7 @@ def main() -> None:
 
     sample = sample.rename(columns={
         "_acc_clean": "genome_accession",
-        "ncbi_assembly_accession": "ncbi_assembly_accession_versioned",
+        "ncbi_genbank_assembly_accession": "ncbi_assembly_accession_versioned",
     })
     sample = sample[[
         "accession", "genome_accession", "ncbi_assembly_accession_versioned",
