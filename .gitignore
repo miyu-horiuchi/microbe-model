@@ -24,6 +24,16 @@ venv/
 *.gbff
 *.gbff.gz
 
+# But keep small, human-readable artifacts in version control
+!artifacts/
+artifacts/*
+!artifacts/eval_report.md
+!artifacts/baseline_results.json
+!artifacts/run.log
+!artifacts/train.log
+!artifacts/eval.log
+!artifacts/summary.log
+
 # Notebooks
 .ipynb_checkpoints/
 notebooks/scratch/

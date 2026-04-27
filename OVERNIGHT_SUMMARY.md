@@ -1,6 +1,6 @@
 # Overnight run — summary
 
-_Written 2026-04-27T01:45+00:00_
+_Written 2026-04-27T02:16+00:00_
 
 ## Pipeline status
 
@@ -8,28 +8,29 @@ _Written 2026-04-27T01:45+00:00_
   - 19,637 have genome accessions
   - 50,384 have optimal_temperature_c labels
   - **17,054** strains are training-ready (genome + T_opt)
-- 🟡 Featurize: in progress (84%)
-  - Processed: 14,428 / 17,094
-  - Successful: 14,402 (99.8%)
-  - Failed: 26 (mostly suppressed/withdrawn NCBI assemblies)
-- ⏭ Training: not yet run (waits for featurize completion)
-- ⏭ Eval report: not yet generated
+- ✅ Featurize: complete
+  - Processed: 17,094 / 17,094
+  - Successful: 17,065 (99.8%)
+  - Failed: 29 (mostly suppressed/withdrawn NCBI assemblies)
+- ✅ Training: see `artifacts/train.log` for stdout
+- ✅ Eval report: **`artifacts/eval_report.md`**
 
 ## What to read first
 
-1. Wait for `artifacts/eval_report.md` to be generated, then open it.
+1. Open **`artifacts/eval_report.md`** — headline metrics + per-target detail.
 2. Check `git log --oneline` to see the commit timeline.
 
 ## Files of interest
 
-- — `artifacts/eval_report.md` — headline result + metrics 
-- — `artifacts/baseline_results.json` — machine-readable per-fold scores 
+- ✅ `artifacts/eval_report.md` — headline result + metrics 0.0 MB
+- ✅ `artifacts/baseline_results.json` — machine-readable per-fold scores 0.0 MB
 - ✅ `data/bacdive_phenotypes.parquet` — phenotype labels (gitignored) 1.7 MB
-- — `data/features.parquet` — extracted genome features (gitignored) 
-- — `data/training_table.parquet` — merged + group-keyed table used for training (gitignored) 
+- ✅ `data/features.parquet` — extracted genome features (gitignored) 5.4 MB
+- ✅ `data/training_table.parquet` — merged + group-keyed table used for training (gitignored) 5.8 MB
 
 ## Commits since yesterday
 
+- 72e12e7 Make OVERNIGHT_SUMMARY.md write atomic (avoid race with regen loop)
 - 2ea77d1 Add v1 composition features (tetranucleotides + codon usage)
 - 316196d Fix predictions parquet type mix + plumb feature_cols through eval
 - 7db9544 Add tests for explore module (correlations + class means)
