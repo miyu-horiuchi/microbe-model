@@ -1,6 +1,6 @@
 # Overnight run — summary
 
-_Written 2026-04-26T23:03+00:00_
+_Written 2026-04-27T01:44+00:00_
 
 ## Pipeline status
 
@@ -8,10 +8,10 @@ _Written 2026-04-26T23:03+00:00_
   - 19,637 have genome accessions
   - 50,384 have optimal_temperature_c labels
   - **17,054** strains are training-ready (genome + T_opt)
-- 🟡 Featurize: in progress (32%)
-  - Processed: 5,489 / 17,094
-  - Successful: 5,473 (99.7%)
-  - Failed: 16 (mostly suppressed/withdrawn NCBI assemblies)
+- 🟡 Featurize: in progress (84%)
+  - Processed: 14,309 / 17,094
+  - Successful: 14,283 (99.8%)
+  - Failed: 26 (mostly suppressed/withdrawn NCBI assemblies)
 - ⏭ Training: not yet run (waits for featurize completion)
 - ⏭ Eval report: not yet generated
 
@@ -30,6 +30,12 @@ _Written 2026-04-26T23:03+00:00_
 
 ## Commits since yesterday
 
+- 316196d Fix predictions parquet type mix + plumb feature_cols through eval
+- 7db9544 Add tests for explore module (correlations + class means)
+- a22773f Harden post-featurize chain: each phase runs even if previous fails
+- eb37476 Add feature↔target correlation analysis to eval report
+- a7d692a Update README to reflect current state
+- 401687e Eval report enhancements: TL;DR + per-strain predictions + per-family error
 - 82997f4 Fix classification fold bug + add end-to-end integration tests
 - 8d52535 Add eval report generator + training table persistence + group-col override
 - 33535e5 Streaming fetch+featurize pipeline + 6× pyrodigal speedup + GCA version resolution
