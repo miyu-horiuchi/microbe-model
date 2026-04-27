@@ -1,6 +1,6 @@
 # Overnight run — summary
 
-_Written 2026-04-27T02:37+00:00_
+_Written 2026-04-27T11:37+00:00_
 
 ## Pipeline status
 
@@ -10,8 +10,8 @@ _Written 2026-04-27T02:37+00:00_
   - **17,054** strains are training-ready (genome + T_opt)
 - ✅ Featurize: complete
   - Processed: 17,094 / 17,094
-  - Successful: 17,065 (99.8%)
-  - Failed: 29 (mostly suppressed/withdrawn NCBI assemblies)
+  - Successful: 17,047 (99.7%)
+  - Failed: 47 (mostly suppressed/withdrawn NCBI assemblies)
 - ✅ Training: see `artifacts/train.log` for stdout
 - ✅ Eval report: **`artifacts/eval_report.md`**
 
@@ -22,14 +22,22 @@ _Written 2026-04-27T02:37+00:00_
 
 ## Files of interest
 
-- ✅ `artifacts/eval_report.md` — headline result + metrics 9.6 KB
-- ✅ `artifacts/baseline_results.json` — machine-readable per-fold scores 8.8 KB
+- ✅ `artifacts/eval_report.md` — headline result + metrics 9.5 KB
+- ✅ `artifacts/baseline_results.json` — machine-readable per-fold scores 15.1 KB
 - ✅ `data/bacdive_phenotypes.parquet` — phenotype labels (gitignored) 1.7 MB
-- ✅ `data/features.parquet` — extracted genome features (gitignored) 5.4 MB
-- ✅ `data/training_table.parquet` — merged + group-keyed table used for training (gitignored) 5.8 MB
+- ✅ `data/features.parquet` — extracted genome features (gitignored) 59.4 MB
+- ✅ `data/training_table.parquet` — merged + group-keyed table used for training (gitignored) 59.9 MB
 
 ## Commits since yesterday
 
+- 7837dc6 Phase E #2: scripts/recommend.py — single-genome → ranked media + phenotype CLI
+- 2c90331 Tests for media recommender (3 passing) — ROC-AUC > 0.6 on synthetic signal
+- a3bdc5c Phase E modeling: per-medium classifiers + recommender training script
+- 2c3d92c Phase E scaffolding: MediaDive integration + strain↔medium links
+- 94be37a Fix GTDB column names + accession resolution for v226 metadata schema
+- e4c011c Phase C scaffolding: GTDB candidate selection + uncultured prediction
+- d0d37a5 v1 features: wire tetranucleotides + codon usage into streaming pipeline
+- f7ca631 Final cleanup: sync OVERNIGHT_SUMMARY.md + fix size display for small files
 - 17518a3 Final overnight commit: trained baseline + eval report + summary
 - 72e12e7 Make OVERNIGHT_SUMMARY.md write atomic (avoid race with regen loop)
 - 2ea77d1 Add v1 composition features (tetranucleotides + codon usage)
@@ -42,8 +50,6 @@ _Written 2026-04-27T02:37+00:00_
 - 82997f4 Fix classification fold bug + add end-to-end integration tests
 - 8d52535 Add eval report generator + training table persistence + group-col override
 - 33535e5 Streaming fetch+featurize pipeline + 6× pyrodigal speedup + GCA version resolution
-- e945ca9 Rewrite BacDive client for v2 public API (no auth required)
-- 208a477 Scaffold v0: BacDive + NCBI ingestion, genome feature extractor, XGBoost baseline
 
 ## Reminders
 

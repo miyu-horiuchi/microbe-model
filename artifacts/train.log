@@ -1,13 +1,13 @@
-Training table: 17,065 strains × 33 features
+Training table: 17,047 strains × 353 features
 Distinct groups: 605
 Group sizes (top 10): {'Streptomycetaceae': 798, 'Bacillaceae': 643, 'Flavobacteriaceae': 631, 'Lactobacillaceae': 472, 'Enterobacteriaceae': 439, 'Microbacteriaceae': 397, 'Pseudomonadaceae': 388, 'Roseobacteraceae': 341, 'Paenibacillaceae': 319, 'Pseudonocardiaceae': 307}
 
 Wrote training table to /Users/miyuhoriuchi/microbe-model/data/training_table.parquet
 Wrote per-strain predictions to /Users/miyuhoriuchi/microbe-model/artifacts/predictions.parquet
 
-Results summary (49.6s):
+Results summary (234.6s):
 
-  optimal_temperature_c     mae        = 3.1726  (n_folds=5)
-  optimal_ph                mae        = 0.5397  (n_folds=5)
-  oxygen_requirement        f1_macro   = 0.2830  (n_folds=5)
-  salt_tolerance_pct        mae        = 2.5228  (n_folds=5)
+  optimal_temperature_c     mae        = 3.2797  (n_folds=5)
+  optimal_ph                mae        = 0.5202  (n_folds=5)
+  oxygen_requirement        f1_macro   = 0.2791  (n_folds=5)
+  salt_tolerance_pct        mae        = 2.5103  (n_folds=5)

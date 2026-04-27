@@ -1,0 +1,38 @@
+Inputs: 17,047 feature rows, 38,649 strain↔medium links
+Training table: 12,689 strains × 353 features × 24 media
+Distinct families: 562
+
+Trained 24 per-medium classifiers in 302.3s
+
+Wrote /Users/miyuhoriuchi/microbe-model/artifacts/media_recommender_results.json
+
+Fitting production models on full dataset...
+Saved 24 production models to /Users/miyuhoriuchi/microbe-model/models/recommender
+Median PR-AUC: 0.180
+Median ROC-AUC: 0.860
+
+Top 15 best-modeled media (by PR-AUC):
+medium_id                                   name  n_pos  n_neg   pr_auc  roc_auc
+       65                GYM STREPTOMYCES MEDIUM   1608  11081 0.730911 0.963128
+      514        BACTO MARINE BROTH (DIFCO 2216)   1319  11370 0.574440 0.910297
+       84             ROLLED OATS MINERAL MEDIUM    599  12090 0.370680 0.953196
+      830                             R2A MEDIUM   1202  11487 0.325919 0.839716
+      693                  COLUMBIA BLOOD MEDIUM   1415  11274 0.323821 0.793217
+       92    TRYPTICASE SOY YEAST EXTRACT MEDIUM   1215  11474 0.304993 0.790605
+        1                          NUTRIENT AGAR   1045  11644 0.297507 0.865132
+      104                  PYG MEDIUM (modified)    349  12340 0.232898 0.904692
+      553                            GPHF-MEDIUM    276  12413 0.211961 0.901489
+      220               CASO AGAR (Merck 105458)    491  12198 0.189578 0.855436
+      339        WILKINS-CHALGREN ANAEROBE BROTH    123  12566 0.189173 0.881104
+       78                    CHOPPED MEAT MEDIUM    185  12504 0.186303 0.937636
+      535              TRYPTICASE SOY BROTH AGAR    996  11693 0.173008 0.708869
+      110 CHOPPED MEAT MEDIUM WITH CARBOHYDRATES    164  12525 0.150335 0.897556
+      554                       N-Z-AMINE-MEDIUM    209  12480 0.128135 0.880503
+
+Worst 5:
+medium_id                      name  n_pos  n_neg   pr_auc  roc_auc
+      215                BHI MEDIUM    257  12432 0.040803 0.589778
+      545 TRYPTONE SOYA BROTH (TSB)    154  12535 0.031110 0.705497
+      381 LB (Luria-Bertani) MEDIUM    130  12559 0.018043 0.638446
+       58    BIFIDOBACTERIUM MEDIUM    129  12560 0.017828 0.709778
+      645        MIDDLEBROOK MEDIUM    202  12487 0.005997 0.763584

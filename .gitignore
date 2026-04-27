@@ -28,11 +28,21 @@ venv/
 !artifacts/
 artifacts/*
 !artifacts/eval_report.md
+!artifacts/eval_report_v0.md
 !artifacts/baseline_results.json
+!artifacts/baseline_results_v0.json
 !artifacts/run.log
 !artifacts/train.log
 !artifacts/eval.log
 !artifacts/summary.log
+!artifacts/phase_c.log
+!artifacts/phase_e.log
+!artifacts/uncultured_predictions.parquet
+
+# Trained recommender models — needed for scripts/recommend.py to work after clone
+!models/
+models/*
+!models/recommender/
 
 # Notebooks
 .ipynb_checkpoints/

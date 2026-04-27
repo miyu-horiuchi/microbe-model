@@ -1,0 +1,311 @@
+{
+  "optimal_temperature_c": {
+    "task": "regression",
+    "mean_metric": 3.1725860578562193,
+    "folds": [
+      {
+        "target": "optimal_temperature_c",
+        "task": "regression",
+        "metric_name": "mae",
+        "value": 2.8455384323075306,
+        "n_train": 13620,
+        "n_test": 3405
+      },
+      {
+        "target": "optimal_temperature_c",
+        "task": "regression",
+        "metric_name": "mae",
+        "value": 3.4572334195443712,
+        "n_train": 13620,
+        "n_test": 3405
+      },
+      {
+        "target": "optimal_temperature_c",
+        "task": "regression",
+        "metric_name": "mae",
+        "value": 3.4555605416991115,
+        "n_train": 13620,
+        "n_test": 3405
+      },
+      {
+        "target": "optimal_temperature_c",
+        "task": "regression",
+        "metric_name": "mae",
+        "value": 2.7375921792185776,
+        "n_train": 13620,
+        "n_test": 3405
+      },
+      {
+        "target": "optimal_temperature_c",
+        "task": "regression",
+        "metric_name": "mae",
+        "value": 3.3670057165115064,
+        "n_train": 13620,
+        "n_test": 3405
+      }
+    ],
+    "top_features": {
+      "ivywrel_frac": 0.4960219383239746,
+      "n_predicted_cds": 0.05391158536076546,
+      "pos_charged_frac": 0.039320334792137146,
+      "aa_frac_P": 0.02822224497795105,
+      "aa_frac_C": 0.026947063207626343,
+      "aa_frac_Y": 0.0244345061480999,
+      "aa_frac_S": 0.022366111725568773,
+      "aa_frac_E": 0.021237003803253173,
+      "mean_isoelectric_point": 0.02086108475923538,
+      "genome_size_nt": 0.019465378299355508,
+      "aa_frac_L": 0.019293070212006568,
+      "aa_frac_V": 0.016112500242888926,
+      "neg_charged_frac": 0.01534007117152214,
+      "aa_frac_D": 0.015074614621698856,
+      "aa_frac_R": 0.01491919681429863,
+      "aa_frac_Q": 0.014176080748438836,
+      "aa_frac_I": 0.013733518309891224,
+      "mean_hydrophobicity": 0.013560011424124241,
+      "aa_frac_T": 0.012679264973849058,
+      "aa_frac_W": 0.011554591916501522
+    }
+  },
+  "optimal_ph": {
+    "task": "regression",
+    "mean_metric": 0.5397326897468703,
+    "folds": [
+      {
+        "target": "optimal_ph",
+        "task": "regression",
+        "metric_name": "mae",
+        "value": 0.4874841267004945,
+        "n_train": 3723,
+        "n_test": 931
+      },
+      {
+        "target": "optimal_ph",
+        "task": "regression",
+        "metric_name": "mae",
+        "value": 0.5713520769145897,
+        "n_train": 3723,
+        "n_test": 931
+      },
+      {
+        "target": "optimal_ph",
+        "task": "regression",
+        "metric_name": "mae",
+        "value": 0.5535044743039043,
+        "n_train": 3723,
+        "n_test": 931
+      },
+      {
+        "target": "optimal_ph",
+        "task": "regression",
+        "metric_name": "mae",
+        "value": 0.5538595587200816,
+        "n_train": 3723,
+        "n_test": 931
+      },
+      {
+        "target": "optimal_ph",
+        "task": "regression",
+        "metric_name": "mae",
+        "value": 0.5324632120952811,
+        "n_train": 3724,
+        "n_test": 930
+      }
+    ],
+    "top_features": {
+      "neg_charged_frac": 0.11188828796148301,
+      "aa_frac_H": 0.06443588957190513,
+      "ivywrel_frac": 0.04711368381977081,
+      "aa_frac_Q": 0.0425002209842205,
+      "aa_frac_E": 0.04013040736317634,
+      "n_predicted_cds": 0.0346000149846077,
+      "mean_hydrophobicity": 0.033536428958177565,
+      "aa_frac_L": 0.03228112906217575,
+      "aa_frac_C": 0.03177782744169235,
+      "aa_frac_V": 0.031084126606583596,
+      "mean_isoelectric_point": 0.03050720915198326,
+      "aa_frac_S": 0.02965335138142109,
+      "aa_frac_Y": 0.02864424102008343,
+      "aa_frac_W": 0.028111560642719267,
+      "aa_frac_P": 0.027575015649199487,
+      "aa_frac_I": 0.02686116211116314,
+      "pos_charged_frac": 0.02524181194603443,
+      "aa_frac_R": 0.024946783483028413,
+      "aromatic_frac": 0.024847164377570154,
+      "aa_frac_D": 0.024307455867528915
+    }
+  },
+  "oxygen_requirement": {
+    "task": "classification",
+    "mean_metric": 0.28303272250198364,
+    "folds": [
+      {
+        "target": "oxygen_requirement",
+        "task": "classification",
+        "metric_name": "f1_macro",
+        "value": 0.2740537993495899,
+        "n_train": 8347,
+        "n_test": 2086
+      },
+      {
+        "target": "oxygen_requirement",
+        "task": "classification",
+        "metric_name": "f1_macro",
+        "value": 0.27987706315870853,
+        "n_train": 8347,
+        "n_test": 2087
+      },
+      {
+        "target": "oxygen_requirement",
+        "task": "classification",
+        "metric_name": "f1_macro",
+        "value": 0.2906654309479178,
+        "n_train": 8347,
+        "n_test": 2087
+      },
+      {
+        "target": "oxygen_requirement",
+        "task": "classification",
+        "metric_name": "f1_macro",
+        "value": 0.2668782460426221,
+        "n_train": 8347,
+        "n_test": 2087
+      },
+      {
+        "target": "oxygen_requirement",
+        "task": "classification",
+        "metric_name": "f1_macro",
+        "value": 0.3036890730110796,
+        "n_train": 8348,
+        "n_test": 2086
+      }
+    ],
+    "top_features": {
+      "aa_frac_C": 0.10454434156417847,
+      "genome_size_nt": 0.0889880508184433,
+      "n_predicted_cds": 0.061901997029781344,
+      "aa_frac_Q": 0.054254394769668576,
+      "aa_frac_K": 0.037319378927350044,
+      "aa_frac_W": 0.03615027591586113,
+      "aa_frac_M": 0.03541129007935524,
+      "aa_frac_H": 0.03520122580230236,
+      "aa_frac_G": 0.03354446776211262,
+      "ivywrel_frac": 0.0306744959205389,
+      "aa_frac_Y": 0.03018171414732933,
+      "aa_frac_L": 0.029987764731049537,
+      "pos_charged_frac": 0.029102231562137603,
+      "aa_frac_V": 0.02888880521059036,
+      "aa_frac_N": 0.02404877059161663,
+      "aa_frac_F": 0.023649439588189124,
+      "aa_frac_E": 0.023098185285925867,
+      "aa_frac_P": 0.022718899697065354,
+      "aa_frac_R": 0.021204233914613724,
+      "aa_frac_I": 0.02029264494776726
+    }
+  },
+  "salt_tolerance_pct": {
+    "task": "regression",
+    "mean_metric": 2.522809721716851,
+    "folds": [
+      {
+        "target": "salt_tolerance_pct",
+        "task": "regression",
+        "metric_name": "mae",
+        "value": 2.182882065629829,
+        "n_train": 3840,
+        "n_test": 960
+      },
+      {
+        "target": "salt_tolerance_pct",
+        "task": "regression",
+        "metric_name": "mae",
+        "value": 2.5901312468783932,
+        "n_train": 3840,
+        "n_test": 960
+      },
+      {
+        "target": "salt_tolerance_pct",
+        "task": "regression",
+        "metric_name": "mae",
+        "value": 3.1095002870118864,
+        "n_train": 3840,
+        "n_test": 960
+      },
+      {
+        "target": "salt_tolerance_pct",
+        "task": "regression",
+        "metric_name": "mae",
+        "value": 2.4400568475718374,
+        "n_train": 3840,
+        "n_test": 960
+      },
+      {
+        "target": "salt_tolerance_pct",
+        "task": "regression",
+        "metric_name": "mae",
+        "value": 2.291478161492307,
+        "n_train": 3840,
+        "n_test": 960
+      }
+    ],
+    "top_features": {
+      "aa_frac_C": 0.15850864201784134,
+      "neg_charged_frac": 0.14477943778038024,
+      "aa_frac_T": 0.03598657064139843,
+      "mean_isoelectric_point": 0.030603666976094245,
+      "aa_frac_H": 0.030093548446893693,
+      "aa_frac_D": 0.02875022515654564,
+      "aa_frac_L": 0.02756672874093056,
+      "aa_frac_K": 0.026532869413495065,
+      "aa_frac_W": 0.02639944478869438,
+      "ivywrel_frac": 0.026095620542764663,
+      "aa_frac_I": 0.025597410276532173,
+      "aa_frac_S": 0.0251168642193079,
+      "aa_frac_M": 0.02414705790579319,
+      "aa_frac_Y": 0.02411585859954357,
+      "aa_frac_V": 0.022448396496474742,
+      "mean_hydrophobicity": 0.022069810889661312,
+      "mean_cds_aa_length": 0.02146391086280346,
+      "aromatic_frac": 0.02145920880138874,
+      "aa_frac_P": 0.02134738564491272,
+      "n_predicted_cds": 0.020885448157787322
+    }
+  },
+  "__meta__": {
+    "feature_cols": [
+      "genome_size_nt",
+      "n_contigs",
+      "gc_content",
+      "n_predicted_cds",
+      "coding_density",
+      "mean_cds_aa_length",
+      "median_cds_aa_length",
+      "aromatic_frac",
+      "pos_charged_frac",
+      "neg_charged_frac",
+      "ivywrel_frac",
+      "mean_hydrophobicity",
+      "mean_isoelectric_point",
+      "aa_frac_A",
+      "aa_frac_C",
+      "aa_frac_D",
+      "aa_frac_E",
+      "aa_frac_F",
+      "aa_frac_G",
+      "aa_frac_H",
+      "aa_frac_I",
+      "aa_frac_K",
+      "aa_frac_L",
+      "aa_frac_M",
+      "aa_frac_N",
+      "aa_frac_P",
+      "aa_frac_Q",
+      "aa_frac_R",
+      "aa_frac_S",
+      "aa_frac_T",
+      "aa_frac_V",
+      "aa_frac_W",
+      "aa_frac_Y"
+    ]
+  }
+}

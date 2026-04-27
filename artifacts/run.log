@@ -1,7 +1,11 @@
-[2026-04-27T02:15:42Z] >>> train
-[2026-04-27T02:16:34Z] <<< train OK
-[2026-04-27T02:16:34Z] >>> eval
-[2026-04-27T02:16:36Z] <<< eval OK
-[2026-04-27T02:16:36Z] >>> summary
-[2026-04-27T02:16:37Z] <<< summary OK
-[2026-04-27T02:16:37Z] all phases attempted
+[2026-04-27T11:33:18Z] >>> train
+[2026-04-27T11:37:16Z] <<< train OK
+[2026-04-27T11:37:16Z] >>> eval
+[2026-04-27T11:37:22Z] <<< eval OK
+[2026-04-27T11:37:22Z] >>> summary
+[2026-04-27T11:37:24Z] <<< summary OK
+[2026-04-27T11:37:24Z] all phases attempted
+[2026-04-27T11:38:45Z] v1 train+eval complete — starting Phase C
+[2026-04-27T12:56:49Z] Phase C complete
+[2026-04-27T12:57:12Z] Phase C complete — starting Phase E recommender training
+[2026-04-27T13:03:49Z] Phase E recommender training complete
