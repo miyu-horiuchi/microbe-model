@@ -170,8 +170,9 @@ def save_results(
     path: Path,
     *,
     predictions_path: Path | None = None,
+    feature_cols: list[str] | None = None,
 ) -> None:
-    payload = {
+    payload: dict[str, Any] = {
         target: {
             "task": r.task,
             "mean_metric": r.mean(),
@@ -182,6 +183,8 @@ def save_results(
         }
         for target, r in results.items()
     }
+    if feature_cols is not None:
+        payload["__meta__"] = {"feature_cols": list(feature_cols)}
     path.write_text(json.dumps(payload, indent=2))
 
     if predictions_path is not None:
@@ -190,6 +193,11 @@ def save_results(
             if r.predictions is None or r.predictions.empty:
                 continue
             df = r.predictions.copy()
+            # Cast to str for parquet compatibility — predicted/observed can be float
+            # (regression) or class label (classification). Eval re-casts numerics
+            # via pd.to_numeric where needed.
+            df["predicted"] = df["predicted"].astype(str)
+            df["observed"] = df["observed"].astype(str)
             df["target"] = target
             df["task"] = r.task
             frames.append(df)

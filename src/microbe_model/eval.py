@@ -43,8 +43,13 @@ def render_report(
     n_strains: int | None = None,
     runtime_seconds: float | None = None,
     predictions_path: Path | None = None,
+    feature_cols: list[str] | None = None,
 ) -> None:
-    results: dict[str, Any] = json.loads(results_path.read_text())
+    raw_results: dict[str, Any] = json.loads(results_path.read_text())
+    meta = raw_results.pop("__meta__", {})
+    if feature_cols is None and "feature_cols" in meta:
+        feature_cols = meta["feature_cols"]
+    results: dict[str, Any] = raw_results
     df = pd.read_parquet(dataset_path)
     predictions = (
         pd.read_parquet(predictions_path)
@@ -84,7 +89,17 @@ def render_report(
         "- _No targets trained successfully — see logs._"
     ])
     lines.append("")
-    lines.append(f"Trained on **{len(df):,}** strains with **{len([c for c in df.columns if c.startswith(('aa_frac_', 'genome_size', 'gc_', 'n_predicted', 'coding_', 'mean_', 'aromatic_', 'pos_', 'neg_', 'ivywrel_', 'median_'))])}** genome-derived features. "
+    n_features = (
+        len(feature_cols) if feature_cols is not None
+        else sum(
+            1 for c in df.columns
+            if c.startswith((
+                "aa_frac_", "genome_size", "gc_", "n_predicted", "coding_",
+                "mean_", "aromatic_", "pos_", "neg_", "ivywrel_", "median_",
+            ))
+        )
+    )
+    lines.append(f"Trained on **{len(df):,}** strains with **{n_features}** genome-derived features. "
                  f"Cross-validation: 5-fold GroupKFold by taxonomic family.")
     lines.append("")
 
@@ -175,12 +190,13 @@ def render_report(
             lines.append("")
 
     # Section: feature-target correlations (data-exploration sanity check)
-    feature_cols = [
+    detected_feature_cols = feature_cols if feature_cols is not None else [
         c for c in df.columns
         if c.startswith(("aa_frac_", "genome_size", "gc_", "n_predicted", "coding_",
-                          "mean_", "aromatic_", "pos_", "neg_", "ivywrel_", "median_"))
+                          "mean_", "aromatic_", "pos_", "neg_", "ivywrel_", "median_", "f"))
+        and pd.api.types.is_numeric_dtype(df[c])
     ]
-    if feature_cols:
+    if detected_feature_cols:
         from microbe_model.explore import feature_target_correlations
         lines.append("## Feature ↔ target correlations (Spearman, top 10)")
         lines.append("")
@@ -189,7 +205,7 @@ def render_report(
                      "`optimal_temperature_c` (Zeldovich 2007 thermophile signature).")
         lines.append("")
         for target in ("optimal_temperature_c", "optimal_ph", "salt_tolerance_pct"):
-            corrs = feature_target_correlations(df, feature_cols, target, top_n=10)
+            corrs = feature_target_correlations(df, detected_feature_cols, target, top_n=10)
             if not corrs:
                 continue
             lines.append(f"### `{target}`")

@@ -96,3 +96,49 @@ def test_save_results_roundtrip(tmp_path: Path) -> None:
         assert "task" in loaded[target]
         assert "mean_metric" in loaded[target]
         assert "folds" in loaded[target]
+
+
+def test_save_results_writes_predictions_parquet(tmp_path: Path) -> None:
+    df, feature_cols = _synthetic_dataset(n=200)
+    results = train_all(df, feature_cols, group_col_override="group")
+
+    results_path = tmp_path / "results.json"
+    pred_path = tmp_path / "predictions.parquet"
+    save_results(results, results_path, predictions_path=pred_path)
+    assert pred_path.exists()
+
+    preds = pd.read_parquet(pred_path)
+    # Should have rows for both regression and classification targets
+    assert "target" in preds.columns
+    assert "task" in preds.columns
+    assert "row_idx" in preds.columns
+    assert "predicted" in preds.columns
+    assert "observed" in preds.columns
+    assert preds["task"].isin({"regression", "classification"}).all()
+    # row_idx should map back to the source df
+    assert preds["row_idx"].max() < len(df)
+
+
+def test_full_chain_render_with_predictions(tmp_path: Path) -> None:
+    """Full chain: train → save with predictions → render report → check per-family section."""
+    df, feature_cols = _synthetic_dataset(n=200)
+    results = train_all(df, feature_cols, group_col_override="group")
+
+    results_path = tmp_path / "results.json"
+    pred_path = tmp_path / "predictions.parquet"
+    save_results(results, results_path, predictions_path=pred_path)
+
+    table_path = tmp_path / "table.parquet"
+    df.to_parquet(table_path, index=False)
+
+    out_path = tmp_path / "report.md"
+    render_report(
+        results_path, table_path, out_path,
+        predictions_path=pred_path,
+        feature_cols=feature_cols,
+    )
+    text = out_path.read_text()
+
+    assert "## Per-family error breakdown" in text
+    assert "## Feature ↔ target correlations" in text
+    assert "## TL;DR" in text

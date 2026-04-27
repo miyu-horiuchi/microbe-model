@@ -47,7 +47,7 @@ def main() -> None:
 
     out = config.ARTIFACTS / "baseline_results.json"
     predictions_out = config.ARTIFACTS / "predictions.parquet"
-    save_results(results, out, predictions_path=predictions_out)
+    save_results(results, out, predictions_path=predictions_out, feature_cols=feature_cols)
     print(f"Wrote per-strain predictions to {predictions_out}")
 
     print(f"\nResults summary ({time.time() - t0:.1f}s):\n")
