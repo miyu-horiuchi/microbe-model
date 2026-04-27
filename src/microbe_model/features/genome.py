@@ -51,8 +51,8 @@ def read_fasta_records(path: Path) -> Iterable[tuple[str, str]]:
 MIN_TRAIN_NT = 20_000  # below this, pyrodigal can't train; fall back to meta mode
 
 
-def predict_proteins(contigs: Iterable[tuple[str, str]]) -> tuple[list[str], int]:
-    """Run Pyrodigal and return predicted protein sequences + total nucleotides scanned.
+def predict_genes(contigs: Iterable[tuple[str, str]]) -> tuple[list[str], list[str], int]:
+    """Run Pyrodigal and return (proteins, nt_cds_sequences, total_nt).
 
     Uses single-genome mode with training on the concatenated contigs — ~7× faster than
     meta mode on assembled genomes. Falls back to meta mode for very short or highly
@@ -64,7 +64,6 @@ def predict_proteins(contigs: Iterable[tuple[str, str]]) -> tuple[list[str], int
 
     if total_nt >= MIN_TRAIN_NT:
         finder = pyrodigal.GeneFinder(meta=False)
-        # Train on concatenated contigs (separated by stops to keep ORF prediction sane)
         train_seq = b"TTAATTAATTAA".join(seq for _, seq in encoded)
         try:
             finder.train(train_seq)
@@ -74,10 +73,18 @@ def predict_proteins(contigs: Iterable[tuple[str, str]]) -> tuple[list[str], int
         finder = pyrodigal.GeneFinder(meta=True)
 
     proteins: list[str] = []
+    cds: list[str] = []
     for _name, seq in encoded:
         genes = finder.find_genes(seq)
         for gene in genes:
             proteins.append(gene.translate().rstrip("*"))
+            cds.append(gene.sequence())
+    return proteins, cds, total_nt
+
+
+def predict_proteins(contigs: Iterable[tuple[str, str]]) -> tuple[list[str], int]:
+    """Backwards-compat shim — returns (proteins, total_nt) only."""
+    proteins, _cds, total_nt = predict_genes(contigs)
     return proteins, total_nt
 
 
@@ -118,16 +125,22 @@ def _isoelectric_point(seq: str) -> float:
     return (lo + hi) / 2
 
 
-def extract_features_from_seqs(contigs: list[tuple[str, str]]) -> dict[str, float]:
+def extract_features_from_seqs(
+    contigs: list[tuple[str, str]],
+    *,
+    include_composition: bool = True,
+) -> dict[str, float]:
     """Compute the full feature dict given pre-loaded contigs.
 
     Used by the streaming pipeline to avoid round-tripping FASTA bytes through disk.
+    When ``include_composition`` is True (default), tetranucleotide and codon-usage
+    features are appended (320 extra columns).
     """
     nt_total = sum(len(s) for _, s in contigs)
     gc = sum(s.count("G") + s.count("C") for _, s in contigs)
     gc_frac = gc / nt_total if nt_total else 0.0
 
-    proteins, _ = predict_proteins(contigs)
+    proteins, cds, _ = predict_genes(contigs)
     aa_total = sum(len(p) for p in proteins)
     coding_density = (3 * aa_total) / nt_total if nt_total else 0.0
 
@@ -147,7 +160,7 @@ def extract_features_from_seqs(contigs: list[tuple[str, str]]) -> dict[str, floa
     mean_pi = float(np.mean(pi_values)) if pi_values else 7.0
 
     cds_lengths = [len(p) for p in proteins]
-    return {
+    feats: dict[str, float] = {
         "genome_size_nt": float(nt_total),
         "n_contigs": float(len(contigs)),
         "gc_content": gc_frac,
@@ -163,6 +176,11 @@ def extract_features_from_seqs(contigs: list[tuple[str, str]]) -> dict[str, floa
         "mean_isoelectric_point": mean_pi,
         **composition,
     }
+    if include_composition:
+        from microbe_model.features.composition import codon_freqs, tetranucleotide_freqs
+        feats.update(tetranucleotide_freqs(contigs))
+        feats.update(codon_freqs(cds))
+    return feats
 
 
 def extract_features(fasta_path: Path) -> dict[str, float]:
