@@ -77,8 +77,11 @@ def _format_recipe_summary(medium_id: str, recipes: pd.DataFrame, max_compounds:
 def _predict_phenotypes(features_vec: pd.Series) -> dict[str, dict]:
     """Train fresh phenotype heads on all of BacDive, predict for the input.
 
-    Adds confidence/uncertainty proxies: regression std of XGBoost trees
-    isn't easily extractable, so we emit a simple per-target predicted value.
+    For regression targets: trains three models at quantiles 0.1, 0.5, 0.9 to
+    emit a median + 80% prediction interval. The interval width is the model's
+    own uncertainty estimate — wide intervals mean "I don't know."
+
+    For classification: predict_proba gives a calibration-free confidence.
     """
     pheno = pd.read_parquet(config.DATA / "bacdive_phenotypes.parquet")
     feats = pd.read_parquet(config.DATA / "features.parquet")
@@ -95,14 +98,22 @@ def _predict_phenotypes(features_vec: pd.Series) -> dict[str, dict]:
             continue
         X_train = labeled[feature_cols]
         if task == "regression":
-            model = xgb.XGBRegressor(
-                n_estimators=400, max_depth=5, learning_rate=0.05,
-                tree_method="hist", n_jobs=-1,
-            )
             y_train = labeled[target].to_numpy(dtype=float)
-            model.fit(X_train, y_train)
-            pred = float(model.predict(X_pred)[0])
-            out[target] = {"prediction": pred, "task": "regression"}
+            preds: dict[float, float] = {}
+            for alpha in (0.1, 0.5, 0.9):
+                model = xgb.XGBRegressor(
+                    n_estimators=400, max_depth=5, learning_rate=0.05,
+                    tree_method="hist", n_jobs=-1,
+                    objective="reg:quantileerror", quantile_alpha=alpha,
+                )
+                model.fit(X_train, y_train)
+                preds[alpha] = float(model.predict(X_pred)[0])
+            out[target] = {
+                "prediction": preds[0.5],
+                "low_80": preds[0.1],
+                "high_80": preds[0.9],
+                "task": "regression",
+            }
         else:
             encoder = LabelEncoder()
             y_train_enc = encoder.fit_transform(labeled[target].astype(str))
@@ -195,7 +206,13 @@ def main() -> None:
     for target, info in phenotypes.items():
         if info["task"] == "regression":
             unit = "°C" if "temperature" in target else ("%" if "salt" in target else "")
-            print(f"  {target:<30s} {info['prediction']:.2f}{unit}")
+            low = info.get("low_80")
+            high = info.get("high_80")
+            if low is not None and high is not None:
+                print(f"  {target:<30s} {info['prediction']:.2f}{unit}  "
+                      f"(80% interval: {low:.2f}-{high:.2f}{unit})")
+            else:
+                print(f"  {target:<30s} {info['prediction']:.2f}{unit}")
         else:
             print(f"  {target:<30s} {info['prediction']}  "
                   f"(confidence={info['confidence']:.2f})")
