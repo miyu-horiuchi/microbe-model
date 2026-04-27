@@ -1,6 +1,6 @@
 # Overnight run — summary
 
-_Written 2026-04-27T02:16+00:00_
+_Written 2026-04-27T02:37+00:00_
 
 ## Pipeline status
 
@@ -22,14 +22,15 @@ _Written 2026-04-27T02:16+00:00_
 
 ## Files of interest
 
-- ✅ `artifacts/eval_report.md` — headline result + metrics 0.0 MB
-- ✅ `artifacts/baseline_results.json` — machine-readable per-fold scores 0.0 MB
+- ✅ `artifacts/eval_report.md` — headline result + metrics 9.6 KB
+- ✅ `artifacts/baseline_results.json` — machine-readable per-fold scores 8.8 KB
 - ✅ `data/bacdive_phenotypes.parquet` — phenotype labels (gitignored) 1.7 MB
 - ✅ `data/features.parquet` — extracted genome features (gitignored) 5.4 MB
 - ✅ `data/training_table.parquet` — merged + group-keyed table used for training (gitignored) 5.8 MB
 
 ## Commits since yesterday
 
+- 17518a3 Final overnight commit: trained baseline + eval report + summary
 - 72e12e7 Make OVERNIGHT_SUMMARY.md write atomic (avoid race with regen loop)
 - 2ea77d1 Add v1 composition features (tetranucleotides + codon usage)
 - 316196d Fix predictions parquet type mix + plumb feature_cols through eval

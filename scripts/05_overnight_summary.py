@@ -155,8 +155,12 @@ def main() -> None:
     for rel, desc in files_of_interest:
         path = ROOT / rel
         marker = "✅" if path.exists() else "—"
-        size_mb = f"{path.stat().st_size / 1e6:.1f} MB" if path.exists() else ""
-        lines.append(f"- {marker} `{rel}` — {desc} {size_mb}")
+        if path.exists():
+            size = path.stat().st_size
+            size_label = f"{size / 1e6:.1f} MB" if size >= 100_000 else f"{size / 1e3:.1f} KB"
+        else:
+            size_label = ""
+        lines.append(f"- {marker} `{rel}` — {desc} {size_label}")
     lines.append("")
 
     # Commits overnight
