@@ -38,6 +38,10 @@ artifacts/*
 !artifacts/phase_c.log
 !artifacts/phase_e.log
 !artifacts/uncultured_predictions.parquet
+!artifacts/embedding_results.json
+!artifacts/v1_vs_v2_comparison.md
+!artifacts/train_v2.log
+!artifacts/compare_v1_v2.log
 
 # Trained recommender models — needed for scripts/recommend.py to work after clone
 !models/

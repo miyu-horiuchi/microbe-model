@@ -1,0 +1,11 @@
+Training table: 17,030 strains × 320 embedding dims
+Distinct groups: 605
+
+
+Trained in 270.5s. Wrote /Users/miyuhoriuchi/microbe-model/artifacts/embedding_results.json
+
+Comparison vs v1 hand-crafted features:
+  optimal_temperature_c     mae        = 3.8112  (n_folds=5)
+  optimal_ph                mae        = 0.5437  (n_folds=5)
+  oxygen_requirement        f1_macro   = 0.2664  (n_folds=5)
+  salt_tolerance_pct        mae        = 2.5972  (n_folds=5)
