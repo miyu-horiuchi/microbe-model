@@ -1,0 +1,9 @@
+Training set: 17,047 strains × 353 features
+Output dir: /Users/miyuhoriuchi/microbe-model/models/phenotype
+
+  optimal_temperature_c          regression  n=17007  (23.4s)
+  optimal_ph                     regression  n= 4652  (17.5s)
+  oxygen_requirement             classifier  n=10426  classes=['aerobe', 'aerotolerant', 'anaerobe', 'facultative aerobe', 'facultative anaerobe', 'microaerophile', 'microaerotolerant', 'obligate aerobe', 'obligate anaerobe']  (21.9s)
+  salt_tolerance_pct             regression  n= 4793  (11.3s)
+
+Wrote phenotype heads to /Users/miyuhoriuchi/microbe-model/models/phenotype

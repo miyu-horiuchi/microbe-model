@@ -1,0 +1,11 @@
+Training table: 17,012 strains × 673 features (353 hand-crafted + 320 embedding dims)
+Distinct groups: 605
+
+
+Trained in 435.2s. Wrote /Users/miyuhoriuchi/microbe-model/artifacts/combined_results.json
+
+Results summary:
+  optimal_temperature_c     mae        = 3.2743  (n_folds=5)
+  optimal_ph                mae        = 0.5148  (n_folds=5)
+  oxygen_requirement        f1_macro   = 0.2926  (n_folds=5)
+  salt_tolerance_pct        mae        = 2.5005  (n_folds=5)

@@ -75,14 +75,59 @@ def _format_recipe_summary(medium_id: str, recipes: pd.DataFrame, max_compounds:
 
 
 def _predict_phenotypes(features_vec: pd.Series) -> dict[str, dict]:
-    """Train fresh phenotype heads on all of BacDive, predict for the input.
+    """Predict phenotypes using pre-trained heads (models/phenotype/) when available;
+    otherwise train on the fly from BacDive (slow, ~30s cold start).
 
-    For regression targets: trains three models at quantiles 0.1, 0.5, 0.9 to
-    emit a median + 80% prediction interval. The interval width is the model's
-    own uncertainty estimate — wide intervals mean "I don't know."
-
-    For classification: predict_proba gives a calibration-free confidence.
+    For regression targets: median + 80% prediction interval from quantile models.
+    For classification: top class + max-probability confidence.
     """
+    heads_dir = config.ROOT / "models" / "phenotype"
+    if (heads_dir / "feature_cols.json").exists():
+        return _predict_phenotypes_from_disk(features_vec, heads_dir)
+    return _predict_phenotypes_on_the_fly(features_vec)
+
+
+def _predict_phenotypes_from_disk(features_vec: pd.Series, heads_dir) -> dict[str, dict]:
+    feature_cols = json.loads((heads_dir / "feature_cols.json").read_text())
+    X_pred = features_vec.reindex(feature_cols).to_frame().T
+
+    out: dict[str, dict] = {}
+    for target, task in config.PHENOTYPE_TARGETS.items():
+        if task == "regression":
+            preds: dict[str, float] = {}
+            for tag in ("q10", "q50", "q90"):
+                path = heads_dir / f"{target}_{tag}.ubj"
+                if not path.exists():
+                    break
+                m = xgb.XGBRegressor()
+                m.load_model(str(path))
+                preds[tag] = float(m.predict(X_pred)[0])
+            if "q50" in preds:
+                out[target] = {
+                    "prediction": preds["q50"],
+                    "low_80": preds.get("q10"),
+                    "high_80": preds.get("q90"),
+                    "task": "regression",
+                }
+        else:
+            path = heads_dir / f"{target}.ubj"
+            classes_path = heads_dir / f"{target}_classes.json"
+            if not path.exists() or not classes_path.exists():
+                continue
+            classes = json.loads(classes_path.read_text())
+            m = xgb.XGBClassifier()
+            m.load_model(str(path))
+            pred_idx = int(m.predict(X_pred)[0])
+            proba = m.predict_proba(X_pred)[0]
+            out[target] = {
+                "prediction": str(classes[pred_idx]),
+                "confidence": float(proba.max()),
+                "task": "classification",
+            }
+    return out
+
+
+def _predict_phenotypes_on_the_fly(features_vec: pd.Series) -> dict[str, dict]:
     pheno = pd.read_parquet(config.DATA / "bacdive_phenotypes.parquet")
     feats = pd.read_parquet(config.DATA / "features.parquet")
     df = pheno.merge(feats, on=["bacdive_id", "genome_accession"], how="inner")
@@ -176,7 +221,11 @@ def main() -> None:
     top = recommendations[: args.top_k]
 
     # Phenotype predictions
-    print("Training phenotype heads on BacDive (~30s)...", file=sys.stderr)
+    heads_dir = config.ROOT / "models" / "phenotype"
+    if (heads_dir / "feature_cols.json").exists():
+        print("Loading pre-trained phenotype heads...", file=sys.stderr)
+    else:
+        print("Training phenotype heads on BacDive (~30s)...", file=sys.stderr)
     phenotypes = _predict_phenotypes(feats_series)
 
     if args.json:

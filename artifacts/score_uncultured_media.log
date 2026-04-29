@@ -1,0 +1,8 @@
+Scoring 4,999 uncultured genomes against 24 media...
+  5/24 media scored
+  10/24 media scored
+  15/24 media scored
+  20/24 media scored
+
+Wrote 5,000 rows to /Users/miyuhoriuchi/microbe-model/artifacts/uncultured_predictions.parquet  (0.4s)
+Columns added: top{1,2,3}_medium_{id,name} + top{1,2,3}_confidence

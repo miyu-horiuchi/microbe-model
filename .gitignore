@@ -42,11 +42,16 @@ artifacts/*
 !artifacts/v1_vs_v2_comparison.md
 !artifacts/train_v2.log
 !artifacts/compare_v1_v2.log
+!artifacts/train_phenotype_heads.log
+!artifacts/score_uncultured_media.log
+!artifacts/train_combined.log
+!artifacts/combined_results.json
 
 # Trained recommender models — needed for scripts/recommend.py to work after clone
 !models/
 models/*
 !models/recommender/
+!models/phenotype/
 
 # Notebooks
 .ipynb_checkpoints/
