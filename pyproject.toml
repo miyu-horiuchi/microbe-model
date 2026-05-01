@@ -27,6 +27,10 @@ embeddings = [
     "transformers>=4.40",
     "accelerate>=0.30",
 ]
+ui = [
+    "streamlit>=1.30",
+    "altair>=5",
+]
 
 [build-system]
 requires = ["hatchling"]
