@@ -7,7 +7,7 @@ sdk: docker
 app_port: 7860
 pinned: false
 license: mit
-short_description: Predict growth conditions and culture media for never-cultured microbes
+short_description: Predict growth media for never-cultured microbes
 ---
 
 # microbe-model
