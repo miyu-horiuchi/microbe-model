@@ -3,9 +3,8 @@ title: microbe-model
 emoji: 🦠
 colorFrom: yellow
 colorTo: red
-sdk: streamlit
-sdk_version: 1.39.0
-app_file: app.py
+sdk: docker
+app_port: 7860
 pinned: false
 license: mit
 short_description: Predict growth conditions and culture media for never-cultured microbes
