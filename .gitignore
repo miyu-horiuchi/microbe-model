@@ -13,8 +13,8 @@ venv/
 .env
 .env.local
 
-# Data / artifacts (large files — kept out of git)
-/data/
+# Data / artifacts (large files — kept out of git, with allow-list below)
+/data/*
 /artifacts/
 /models/
 *.parquet
@@ -52,6 +52,10 @@ artifacts/*
 models/*
 !models/recommender/
 !models/phenotype/
+
+# Small reference parquets needed at runtime by app.py / recommend.py
+!data/media_metadata.parquet
+!data/media_recipes.parquet
 
 # Notebooks
 .ipynb_checkpoints/
