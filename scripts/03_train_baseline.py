@@ -25,6 +25,41 @@ def derive_group(row: pd.Series) -> str:
     return "__unknown__"
 
 
+def encode_isolation_categories(
+    df: pd.DataFrame,
+    *,
+    min_count: int = 10,
+) -> tuple[pd.DataFrame, list[str]]:
+    """One-hot encode isolation_cat1/cat2 (pipe-joined multi-labels).
+
+    Each strain's category cell is "Tag1|Tag2|..." (or NaN). We split, then create one
+    iso_<level>_<tag> column per tag that appears in ≥min_count training rows. Strains
+    without any isolation info get all-zero rows for these features (XGBoost treats this
+    as "no signal" rather than missing).
+    """
+    new_cols: list[str] = []
+    for level in ("isolation_cat1", "isolation_cat2"):
+        if level not in df.columns:
+            continue
+        from collections import Counter
+        tag_counts: Counter[str] = Counter()
+        for v in df[level].dropna():
+            tag_counts.update(v.split("|"))
+        kept = [t for t, n in tag_counts.items() if n >= min_count]
+        seen_slugs: set[str] = set()
+        import re
+        for tag in sorted(kept):
+            slug = tag.lower().replace(">", "gt").replace("<", "lt")
+            slug = re.sub(r"[^a-z0-9]+", "_", slug).strip("_")
+            col = f"iso_{level.split('_')[1]}_{slug}"
+            if col in seen_slugs:
+                continue
+            seen_slugs.add(col)
+            df[col] = df[level].fillna("").apply(lambda v, t=tag: int(t in v.split("|")))
+            new_cols.append(col)
+    return df, new_cols
+
+
 def main() -> None:
     t0 = time.time()
     pheno = pd.read_parquet(config.DATA / "bacdive_phenotypes.parquet")
@@ -32,7 +67,12 @@ def main() -> None:
     df = pheno.merge(feats, on=["bacdive_id", "genome_accession"], how="inner")
     df["group"] = df.apply(derive_group, axis=1)
 
+    df, iso_cols = encode_isolation_categories(df)
+    print(f"Encoded {len(iso_cols)} isolation-category features "
+          f"({df[iso_cols].sum().sum():.0f} non-zero entries)")
+
     feature_cols = [c for c in feats.columns if c not in {"bacdive_id", "genome_accession"}]
+    feature_cols = feature_cols + iso_cols
 
     print(f"Training table: {len(df):,} strains × {len(feature_cols)} features")
     print(f"Distinct groups: {df['group'].nunique():,}")

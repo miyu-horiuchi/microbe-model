@@ -102,12 +102,16 @@ def extract_phenotypes(record: dict[str, Any]) -> dict[str, Any]:
       - Physiology and metabolism → oxygen tolerance[]
       - Physiology and metabolism → halophily[]
       - Sequence information → Genome sequences[].INSDC accession
+      - Isolation, sampling and environmental information → isolation source categories[].Cat{1,2,3}
     """
     general = record.get("General") or {}
     taxon = record.get("Name and taxonomic classification") or {}
     culture = record.get("Culture and growth conditions") or {}
     physio = record.get("Physiology and metabolism") or {}
     seq = record.get("Sequence information") or {}
+    iso = record.get("Isolation, sampling and environmental information") or {}
+
+    iso_cats = _collect_isolation_categories(iso.get("isolation source categories"))
 
     out: dict[str, Any] = {
         "bacdive_id": general.get("BacDive-ID"),
@@ -120,8 +124,33 @@ def extract_phenotypes(record: dict[str, Any]) -> dict[str, Any]:
         "oxygen_requirement": _first_value(_as_list(physio.get("oxygen tolerance")), "oxygen tolerance"),
         "salt_tolerance_pct": _derive_salt(physio.get("halophily")),
         "genome_accession": _first_genome_accession(seq.get("Genome sequences")),
+        "isolation_cat1": iso_cats["cat1"],
+        "isolation_cat2": iso_cats["cat2"],
+        "isolation_cat3": iso_cats["cat3"],
     }
     return out
+
+
+def _collect_isolation_categories(raw: Any) -> dict[str, str | None]:
+    """Flatten BacDive's `isolation source categories` into 3 pipe-joined string fields.
+
+    A strain commonly has multiple parallel category descriptions (e.g., #Host=Human AND
+    #Host Body Product=Blood). We collect *all* unique values per level into a sorted,
+    pipe-joined string so downstream code can split & one-hot. The leading '#' is stripped.
+    """
+    cats: dict[str, set[str]] = {"Cat1": set(), "Cat2": set(), "Cat3": set()}
+    for entry in _as_list(raw):
+        if not isinstance(entry, dict):
+            continue
+        for level in cats:
+            value = entry.get(level)
+            if isinstance(value, str) and value:
+                cats[level].add(value.lstrip("#").strip())
+    return {
+        "cat1": "|".join(sorted(cats["Cat1"])) or None,
+        "cat2": "|".join(sorted(cats["Cat2"])) or None,
+        "cat3": "|".join(sorted(cats["Cat3"])) or None,
+    }
 
 
 def _as_list(x: Any) -> list:
