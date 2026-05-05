@@ -71,8 +71,20 @@ def main() -> None:
     print(f"Encoded {len(iso_cols)} isolation-category features "
           f"({df[iso_cols].sum().sum():.0f} non-zero entries)")
 
+    md_path = config.DATA / "mediadive_features.parquet"
+    md_cols: list[str] = []
+    if md_path.exists():
+        md = pd.read_parquet(md_path)
+        md["bacdive_id"] = md["bacdive_id"].astype(int)
+        df["bacdive_id"] = df["bacdive_id"].astype(int)
+        md_cols = [c for c in md.columns if c != "bacdive_id"]
+        df = df.merge(md, on="bacdive_id", how="left")
+        n_with_md = df[md_cols[0]].notna().sum() if md_cols else 0
+        print(f"Joined MediaDive features ({len(md_cols)} cols) — "
+              f"{n_with_md:,}/{len(df):,} training rows have MediaDive data")
+
     feature_cols = [c for c in feats.columns if c not in {"bacdive_id", "genome_accession"}]
-    feature_cols = feature_cols + iso_cols
+    feature_cols = feature_cols + iso_cols + md_cols
 
     print(f"Training table: {len(df):,} strains × {len(feature_cols)} features")
     print(f"Distinct groups: {df['group'].nunique():,}")
