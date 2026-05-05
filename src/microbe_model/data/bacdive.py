@@ -220,13 +220,42 @@ def _first_value(entries: list, key: str) -> str | None:
 
 
 def _derive_salt(halophily: Any) -> float | None:
+    """Derive optimal NaCl concentration (% w/v) from BacDive halophily entries.
+
+    Each entry has shape:
+      {salt: 'NaCl', growth: 'positive'|'no', tested relation: 'optimum'|'growth', concentration: '3 %'}
+
+    Preference order (mirrors _derive_optimum):
+      1. tested relation == 'optimum' AND growth == 'positive'
+      2. median of positive-growth concentrations (the strain's tolerated range)
+      3. None
+
+    The previous implementation returned the first parsable value, which often picked
+    the lowest tested concentration or a no-growth entry — overstating salt sensitivity.
+    """
+    positive_tokens = {"positive", "yes", "+", "true"}
+    optima: list[float] = []
+    growth: list[float] = []
     for entry in _as_list(halophily):
         if not isinstance(entry, dict):
             continue
-        for field in ("concentration", "salt concentration", "tested relation"):
-            value = _to_float(entry.get(field))
-            if value is not None:
-                return value
+        if (entry.get("salt") or "NaCl") != "NaCl":
+            continue
+        is_positive = (entry.get("growth") or "").lower() in positive_tokens
+        relation = (entry.get("tested relation") or "").lower()
+        value = _to_float(entry.get("concentration") or entry.get("salt concentration"))
+        if value is None:
+            continue
+        if "optim" in relation and is_positive:
+            optima.append(value)
+        elif is_positive:
+            growth.append(value)
+    if optima:
+        return sum(optima) / len(optima)
+    if growth:
+        sorted_g = sorted(growth)
+        n = len(sorted_g)
+        return sorted_g[n // 2] if n % 2 else (sorted_g[n // 2 - 1] + sorted_g[n // 2]) / 2
     return None
 
 

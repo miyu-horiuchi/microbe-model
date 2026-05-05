@@ -205,70 +205,70 @@
   },
   "salt_tolerance_pct": {
     "task": "regression",
-    "mean_metric": 2.516896605067264,
+    "mean_metric": 2.1678824807340775,
     "folds": [
       {
         "target": "salt_tolerance_pct",
         "task": "regression",
         "metric_name": "mae",
-        "value": 2.218365752012856,
-        "n_train": 5064,
-        "n_test": 1266
+        "value": 2.0015166708623555,
+        "n_train": 3075,
+        "n_test": 769
       },
       {
         "target": "salt_tolerance_pct",
         "task": "regression",
         "metric_name": "mae",
-        "value": 2.249367568591289,
-        "n_train": 5064,
-        "n_test": 1266
+        "value": 1.933744682528282,
+        "n_train": 3075,
+        "n_test": 769
       },
       {
         "target": "salt_tolerance_pct",
         "task": "regression",
         "metric_name": "mae",
-        "value": 2.8189112452912664,
-        "n_train": 5064,
-        "n_test": 1266
+        "value": 2.8480368776648506,
+        "n_train": 3075,
+        "n_test": 769
       },
       {
         "target": "salt_tolerance_pct",
         "task": "regression",
         "metric_name": "mae",
-        "value": 2.3502065964041967,
-        "n_train": 5064,
-        "n_test": 1266
+        "value": 1.9080503232621326,
+        "n_train": 3075,
+        "n_test": 769
       },
       {
         "target": "salt_tolerance_pct",
         "task": "regression",
         "metric_name": "mae",
-        "value": 2.947631863036709,
-        "n_train": 5064,
-        "n_test": 1266
+        "value": 2.148063849352766,
+        "n_train": 3076,
+        "n_test": 768
       }
     ],
     "top_features": {
-      "aa_frac_C": 0.029796541761606933,
-      "neg_charged_frac": 0.027759117633104326,
-      "tetra_ATCC": 0.018280067457817496,
-      "iso_cat1_environmental": 0.014224943332374096,
-      "tetra_GACT": 0.01211925563402474,
-      "iso_cat2_saline": 0.011419120244681835,
-      "codon_TGC": 0.011161889415234327,
-      "tetra_CGTT": 0.009351400006562472,
-      "codon_CGT": 0.008664370141923427,
-      "iso_cat2_industrial": 0.008528076158836485,
-      "tetra_TAAT": 0.008236682531423867,
-      "iso_cat2_contamination": 0.008197423309320584,
-      "tetra_CGTA": 0.007803171873092651,
-      "tetra_TGTG": 0.007793005835264921,
-      "tetra_TACC": 0.007619049632921815,
-      "codon_CAC": 0.007169742346741259,
-      "tetra_AGTC": 0.006417827447876334,
-      "tetra_CCTG": 0.006371588306501507,
-      "tetra_GGTA": 0.006226122658699751,
-      "tetra_GAAA": 0.006115543586201966
+      "neg_charged_frac": 0.07161131724715233,
+      "tetra_ATCC": 0.042717094696126875,
+      "aa_frac_C": 0.03307443875819445,
+      "iso_cat2_saline": 0.029842879995703696,
+      "aa_frac_T": 0.011370222107507289,
+      "codon_CCG": 0.01071425569243729,
+      "tetra_GTTC": 0.008600032026879489,
+      "codon_ATT": 0.007889647269621491,
+      "iso_cat2_built_environment": 0.0076506318233441565,
+      "tetra_TGAT": 0.006314040301367641,
+      "tetra_CGCT": 0.006236091535538435,
+      "tetra_AATT": 0.006198087707161903,
+      "codon_CGT": 0.006119634560309351,
+      "mean_isoelectric_point": 0.005993681214749813,
+      "tetra_GTAT": 0.005874662450514734,
+      "tetra_TCCA": 0.005588621075730771,
+      "aa_frac_Y": 0.005549108772538602,
+      "codon_ACG": 0.005454356223344803,
+      "tetra_TTCC": 0.0053013143828138706,
+      "tetra_CACA": 0.005279732123017311
     }
   },
   "__meta__": {

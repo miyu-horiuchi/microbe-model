@@ -29,6 +29,24 @@ def main() -> None:
         rows.append(extract_phenotypes(record))
 
     df = pd.DataFrame(rows)
+
+    # Re-apply species → NCBI genome backfill if the resolved map exists.
+    # Otherwise re-extracting silently undoes the work of scripts/18 + 19.
+    species_map_path = config.DATA / "species_to_genome.parquet"
+    if species_map_path.exists():
+        smap = pd.read_parquet(species_map_path)
+        hits = smap[smap["status"] == "hit"][["species", "ncbi_accession"]]
+        gap = df["genome_accession"].isna() & df["species"].notna()
+        df = df.merge(hits, on="species", how="left")
+        df.loc[gap & df["ncbi_accession"].notna(), "genome_accession"] = (
+            df.loc[gap & df["ncbi_accession"].notna(), "ncbi_accession"]
+        )
+        df["genome_source"] = "bacdive"
+        df.loc[gap & df["ncbi_accession"].notna(), "genome_source"] = "species_resolved"
+        df = df.drop(columns=["ncbi_accession"])
+        n_filled = (gap & df["genome_source"].eq("species_resolved")).sum()
+        print(f"Re-applied species backfill: {n_filled:,} rows")
+
     out = config.DATA / "bacdive_phenotypes.parquet"
     df.to_parquet(out, index=False)
 

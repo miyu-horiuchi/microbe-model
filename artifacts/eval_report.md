@@ -1,13 +1,13 @@
 # microbe-model — v0 baseline eval report
 
-_Generated: 2026-05-05T06:56:14+00:00_
+_Generated: 2026-05-05T08:48:33+00:00_
 
 ## TL;DR
 
 - **`optimal_temperature_c`**: MAE = **2.94** (vs always-predict-mean 4.98, **+41%**)
 - **`optimal_ph`**: MAE = **0.51** (vs always-predict-mean 0.55, **+7%**)
 - **`oxygen_requirement`**: macro-F1 = **0.341** (vs always-predict-majority 0.059, **+479%**)
-- **`salt_tolerance_pct`**: MAE = **2.52** (vs always-predict-mean 2.83, **+11%**)
+- **`salt_tolerance_pct`**: MAE = **2.17** (vs always-predict-mean 2.51, **+14%**)
 
 Trained on **46,029** strains with **418** genome-derived features. Cross-validation: 5-fold GroupKFold by taxonomic family.
 
@@ -18,13 +18,13 @@ Trained on **46,029** strains with **418** genome-derived features. Cross-valida
   - `optimal_temperature_c`: 45,621
   - `optimal_ph`: 5,103
   - `oxygen_requirement`: 21,639
-  - `salt_tolerance_pct`: 6,330
+  - `salt_tolerance_pct`: 3,844
 
 ## Target distributions
 
 - `optimal_temperature_c`: n=45,621, mean=32.24, std=7.13, p10=27.50, median=30.00, p90=37.00
 - `optimal_ph`: n=5,103, mean=7.19, std=0.82, p10=6.50, median=7.00, p90=8.00
-- `salt_tolerance_pct`: n=6,330, mean=3.93, std=4.03, p10=0.00, median=3.00, p90=8.00
+- `salt_tolerance_pct`: n=3,844, mean=3.15, std=4.28, p10=0.00, median=2.50, p90=7.00
 - `oxygen_requirement`:
   - `aerobe`: 7,803
   - `anaerobe`: 4,193
@@ -46,7 +46,7 @@ Each is shown alongside the dumb-baseline (always-predict-mean / always-predict-
 | `optimal_temperature_c` | regression | 45,621 | MAE=2.939 | MAE=4.981 | +41.0% |
 | `optimal_ph` | regression | 5,103 | MAE=0.509 | MAE=0.546 | +6.8% |
 | `oxygen_requirement` | classification | 21,639 | F1=0.341 | F1=0.059 | +479.5% |
-| `salt_tolerance_pct` | regression | 6,330 | MAE=2.517 | MAE=2.827 | +11.0% |
+| `salt_tolerance_pct` | regression | 3,844 | MAE=2.168 | MAE=2.515 | +13.8% |
 
 ### `optimal_temperature_c` — fold-by-fold
 
@@ -121,24 +121,24 @@ Each is shown alongside the dumb-baseline (always-predict-mean / always-predict-
 
 | Fold | Metric | Train | Test |
 |---|---|---|---|
-| 1 | mae = 2.218 | n=5,064 | n=1,266 |
-| 2 | mae = 2.249 | n=5,064 | n=1,266 |
-| 3 | mae = 2.819 | n=5,064 | n=1,266 |
-| 4 | mae = 2.350 | n=5,064 | n=1,266 |
-| 5 | mae = 2.948 | n=5,064 | n=1,266 |
+| 1 | mae = 2.002 | n=3,075 | n=769 |
+| 2 | mae = 1.934 | n=3,075 | n=769 |
+| 3 | mae = 2.848 | n=3,075 | n=769 |
+| 4 | mae = 1.908 | n=3,075 | n=769 |
+| 5 | mae = 2.148 | n=3,076 | n=768 |
 
 **Top 10 features for `salt_tolerance_pct`:**
 
-- `aa_frac_C` — 0.0298
-- `neg_charged_frac` — 0.0278
-- `tetra_ATCC` — 0.0183
-- `iso_cat1_environmental` — 0.0142
-- `tetra_GACT` — 0.0121
-- `iso_cat2_saline` — 0.0114
-- `codon_TGC` — 0.0112
-- `tetra_CGTT` — 0.0094
-- `codon_CGT` — 0.0087
-- `iso_cat2_industrial` — 0.0085
+- `neg_charged_frac` — 0.0716
+- `tetra_ATCC` — 0.0427
+- `aa_frac_C` — 0.0331
+- `iso_cat2_saline` — 0.0298
+- `aa_frac_T` — 0.0114
+- `codon_CCG` — 0.0107
+- `tetra_GTTC` — 0.0086
+- `codon_ATT` — 0.0079
+- `iso_cat2_built_environment` — 0.0077
+- `tetra_TGAT` — 0.0063
 
 ## Feature ↔ target correlations (Spearman, top 10)
 
@@ -178,16 +178,16 @@ Sanity-checks the biology — features known to track each target should appear 
 
 | Feature | Spearman ρ | p-value |
 |---|---|---|
-| `tetra_AGTC` | +0.270 | 4.0e-106 |
-| `tetra_GACT` | +0.268 | 1.4e-104 |
-| `neg_charged_frac` | +0.221 | 3.9e-71 |
-| `ivywrel_frac` | +0.221 | 8.4e-71 |
-| `aa_frac_C` | -0.202 | 4.7e-59 |
-| `iso_cat1_environmental` | -0.193 | 2.6e-54 |
-| `n_contigs` | -0.181 | 1.0e-47 |
-| `mean_cds_aa_length` | -0.177 | 8.2e-46 |
-| `tetra_ACTC` | +0.176 | 4.5e-45 |
-| `tetra_GAGT` | +0.173 | 1.5e-43 |
+| `neg_charged_frac` | +0.442 | 1.5e-183 |
+| `mean_isoelectric_point` | -0.344 | 1.7e-107 |
+| `aa_frac_E` | +0.310 | 3.1e-86 |
+| `tetra_GACT` | +0.302 | 4.3e-82 |
+| `tetra_AGTC` | +0.302 | 1.0e-81 |
+| `tetra_ACTC` | +0.282 | 2.2e-71 |
+| `tetra_GAGT` | +0.273 | 1.9e-66 |
+| `iso_cat2_saline` | +0.263 | 9.4e-62 |
+| `aa_frac_D` | +0.257 | 5.3e-59 |
+| `codon_AGC` | -0.252 | 6.0e-57 |
 
 ## Per-family error breakdown (regression targets)
 
@@ -237,21 +237,21 @@ Top 15 most-represented families, MAE per family. Highlights where the model is 
 
 | Family | n | MAE |
 |---|---|---|
-| Streptococcaceae | 340 | 0.891 |
-| Flavobacteriaceae | 312 | 1.834 |
-| Bacillaceae | 310 | 3.417 |
-| Streptomycetaceae | 309 | 2.116 |
-| Pseudomonadaceae | 196 | 4.802 |
-| Corynebacteriaceae | 194 | 3.853 |
-| Vibrionaceae | 173 | 2.872 |
-| Microbacteriaceae | 166 | 2.616 |
-| Paenibacillaceae | 150 | 2.096 |
-| Roseobacteraceae | 143 | 1.556 |
-| Pseudonocardiaceae | 142 | 2.400 |
-| Moraxellaceae | 126 | 2.581 |
-| Nocardiaceae | 125 | 2.899 |
-| Enterococcaceae | 111 | 1.723 |
-| Alcaligenaceae | 104 | 4.454 |
+| Flavobacteriaceae | 267 | 1.917 |
+| Streptomycetaceae | 264 | 2.022 |
+| Bacillaceae | 201 | 3.508 |
+| Roseobacteraceae | 127 | 1.416 |
+| Pseudonocardiaceae | 123 | 2.315 |
+| Paenibacillaceae | 93 | 1.792 |
+| Enterococcaceae | 93 | 2.822 |
+| Microbacteriaceae | 91 | 2.824 |
+| Micromonosporaceae | 90 | 1.550 |
+| Sphingomonadaceae | 81 | 0.923 |
+| Micrococcaceae | 71 | 2.768 |
+| Streptosporangiaceae | 68 | 1.546 |
+| Lactobacillaceae | 66 | 2.367 |
+| Sphingobacteriaceae | 55 | 1.236 |
+| Halomonadaceae | 52 | 2.820 |
 
 ## Known limitations
 
