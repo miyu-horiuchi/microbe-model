@@ -38,6 +38,23 @@ def main() -> None:
     df = pheno.merge(feats, on=["bacdive_id", "genome_accession"], how="inner")
     feature_cols = [c for c in feats.columns if c not in {"bacdive_id", "genome_accession"}]
 
+    # Backfill pH with MediaDive-derived weak labels where BacDive has none.
+    # Apples-to-apples test (scripts/23) showed this nets -3.9% MAE on held-out
+    # curated test rows (corr 0.62 with optima). Salt did NOT pass the same test
+    # (+3.8% MAE, corr only 0.42), so we deliberately don't backfill salt.
+    catalog_path = config.DATA / "strain_catalog.parquet"
+    if catalog_path.exists():
+        catalog = pd.read_parquet(catalog_path)[["bacdive_id", "optimal_ph", "optimal_ph_source"]]
+        catalog["bacdive_id"] = catalog["bacdive_id"].astype(int)
+        catalog["optimal_ph"] = pd.to_numeric(catalog["optimal_ph"], errors="coerce")
+        df["bacdive_id"] = df["bacdive_id"].astype(int)
+        df = df.merge(catalog, on="bacdive_id", how="left", suffixes=("", "_cat"))
+        n_before = df["optimal_ph"].notna().sum()
+        ph_missing = df["optimal_ph"].isna() & df["optimal_ph_cat"].notna() & df["optimal_ph_source"].eq("mediadive_weak")
+        df.loc[ph_missing, "optimal_ph"] = df.loc[ph_missing, "optimal_ph_cat"]
+        n_after = df["optimal_ph"].notna().sum()
+        print(f"pH labels: {n_before:,} curated → {n_after:,} after MediaDive backfill (+{n_after - n_before:,})")
+
     out_dir = config.ROOT / "models" / "phenotype"
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "feature_cols.json").write_text(json.dumps(feature_cols))
