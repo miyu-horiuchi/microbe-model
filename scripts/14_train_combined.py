@@ -24,6 +24,19 @@ from microbe_model import config
 from microbe_model.train.baseline import save_results, train_all
 
 
+OXYGEN_COLLAPSE = {
+    "aerobe": "aerobe",
+    "obligate aerobe": "aerobe",
+    "anaerobe": "anaerobe",
+    "obligate anaerobe": "anaerobe",
+    "facultative anaerobe": "facultative",
+    "facultative aerobe": "facultative",
+    "aerotolerant": "facultative",
+    "microaerotolerant": "facultative",
+    "microaerophile": "microaerophile",
+}
+
+
 def derive_group(row: pd.Series) -> str:
     for col in ("family", "genus"):
         val = row.get(col)
@@ -76,6 +89,13 @@ def main() -> None:
     df = df.merge(embeds, on=["bacdive_id", "genome_accession"], how="inner")
     df["group"] = df.apply(derive_group, axis=1)
 
+    if "oxygen_requirement" in df.columns:
+        before = df["oxygen_requirement"].value_counts().to_dict()
+        df["oxygen_requirement"] = df["oxygen_requirement"].map(OXYGEN_COLLAPSE).fillna(df["oxygen_requirement"])
+        after = df["oxygen_requirement"].value_counts().to_dict()
+        print(f"Oxygen labels collapsed: {len(before)} → {len(after)} classes")
+        print(f"  After: {after}")
+
     df, iso_cols = encode_isolation_categories(df)
     print(f"Encoded {len(iso_cols)} isolation-category features "
           f"({df[iso_cols].sum().sum():.0f} non-zero entries)")
@@ -91,8 +111,9 @@ def main() -> None:
 
     results = train_all(df, feature_cols, group_col_override="group")
 
-    out = config.ARTIFACTS / "combined_results.json"
-    save_results(results, out, feature_cols=feature_cols)
+    out = config.ARTIFACTS / "combined_collapsed_results.json"
+    predictions_out = config.ARTIFACTS / "combined_collapsed_predictions.parquet"
+    save_results(results, out, predictions_path=predictions_out, feature_cols=feature_cols)
     print(f"\nTrained in {time.time() - t0:.1f}s. Wrote {out}\n")
 
     print("Results summary:")

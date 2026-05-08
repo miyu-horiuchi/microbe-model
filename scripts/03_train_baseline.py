@@ -83,8 +83,18 @@ def main() -> None:
         print(f"Joined MediaDive features ({len(md_cols)} cols) — "
               f"{n_with_md:,}/{len(df):,} training rows have MediaDive data")
 
+    hmm_path = config.DATA / "hmm_features.parquet"
+    hmm_cols: list[str] = []
+    if hmm_path.exists():
+        hmm = pd.read_parquet(hmm_path)
+        hmm_cols = [c for c in hmm.columns if c != "genome_accession"]
+        df = df.merge(hmm, on="genome_accession", how="left")
+        n_with_hmm = df[hmm_cols[0]].notna().sum() if hmm_cols else 0
+        print(f"Joined HMM features ({len(hmm_cols)} cols) — "
+              f"{n_with_hmm:,}/{len(df):,} training rows have HMM data")
+
     feature_cols = [c for c in feats.columns if c not in {"bacdive_id", "genome_accession"}]
-    feature_cols = feature_cols + iso_cols + md_cols
+    feature_cols = feature_cols + iso_cols + md_cols + hmm_cols
 
     print(f"Training table: {len(df):,} strains × {len(feature_cols)} features")
     print(f"Distinct groups: {df['group'].nunique():,}")

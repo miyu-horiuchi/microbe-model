@@ -27,6 +27,13 @@ def main() -> None:
     md = pd.read_parquet(config.DATA / "media_metadata.parquet")
     medium_name_by_id = dict(zip(md["medium_id"].astype(str), md["name"], strict=True))
 
+    hmm_path = config.DATA / "hmm_features.parquet"
+    if hmm_path.exists():
+        hmm = pd.read_parquet(hmm_path)
+        feats = feats.merge(hmm, on="genome_accession", how="left")
+        n_hmm_cols = len([c for c in hmm.columns if c != "genome_accession"])
+        print(f"Joined HMM features ({n_hmm_cols} cols) into features table")
+
     print(f"Inputs: {len(feats):,} feature rows, {len(sm):,} strain↔medium links")
 
     X, y_matrix, medium_ids = build_training_table(feats, sm, pheno)

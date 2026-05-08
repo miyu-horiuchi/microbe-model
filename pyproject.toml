@@ -15,6 +15,8 @@ dependencies = [
     "requests>=2.32",
     "tqdm>=4.66",
     "python-dotenv>=1.0",
+    "pyhmmer>=0.12.0",
+    "modal>=1.4.2",
 ]
 
 [project.optional-dependencies]

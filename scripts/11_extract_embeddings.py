@@ -74,12 +74,12 @@ def main() -> None:
     label_cols = list(config.PHENOTYPE_TARGETS.keys())
     has_label = pheno[label_cols].notna().any(axis=1)
     ready = pheno[has_genome & has_label].copy()
-    if args.max:
-        ready = ready.head(args.max)
 
     out_path = config.DATA / "embeddings.jsonl"
     done_ids = _load_done_ids(out_path)
     pending = ready[~ready["bacdive_id"].astype(int).isin(done_ids)]
+    if args.max:
+        pending = pending.head(args.max)
     print(f"Embedding {len(pending):,} genomes (skipping {len(done_ids):,} already done)")
 
     print(f"Loading {args.model}...")
