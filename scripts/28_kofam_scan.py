@@ -91,6 +91,9 @@ def fetch_kofam() -> None:
     """Download and extract KOfam profiles + thresholds."""
     KOFAM_DIR.mkdir(parents=True, exist_ok=True)
 
+    if KOFAM_RELEVANT_HMM.exists() and KO_THRESHOLDS.exists():
+        return
+
     ko_list_gz = KOFAM_DIR / "ko_list.gz"
     if not KO_THRESHOLDS.exists():
         if not ko_list_gz.exists():
