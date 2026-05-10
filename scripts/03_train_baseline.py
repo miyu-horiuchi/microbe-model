@@ -93,8 +93,31 @@ def main() -> None:
         print(f"Joined HMM features ({len(hmm_cols)} cols) — "
               f"{n_with_hmm:,}/{len(df):,} training rows have HMM data")
 
+    kegg_path = config.DATA / "kegg_modules.parquet"
+    kegg_cols: list[str] = []
+    if kegg_path.exists():
+        kegg = pd.read_parquet(kegg_path)
+        kegg_cols = [c for c in kegg.columns if c != "genome_accession"]
+        df = df.merge(kegg, on="genome_accession", how="left")
+        n_with_kegg = df[kegg_cols[0]].notna().sum() if kegg_cols else 0
+        print(f"Joined KEGG module completeness ({len(kegg_cols)} cols) — "
+              f"{n_with_kegg:,}/{len(df):,} training rows have KEGG data")
+
+    iso_meta_path = config.DATA / "isolation_metadata.parquet"
+    iso_meta_cols: list[str] = []
+    if iso_meta_path.exists():
+        iso_meta = pd.read_parquet(iso_meta_path)
+        iso_meta["bacdive_id"] = iso_meta["bacdive_id"].astype(int)
+        df["bacdive_id"] = df["bacdive_id"].astype(int)
+        # Use only the numeric/binary columns; leave free-text out of XGBoost
+        keep = ["iso_lat", "iso_lon", "iso_collection_year"]
+        keep += [c for c in iso_meta.columns if c.startswith(("iso_continent_", "iso_country_", "iso_host_kingdom_"))]
+        iso_meta_cols = [c for c in keep if c in iso_meta.columns]
+        df = df.merge(iso_meta[["bacdive_id"] + iso_meta_cols], on="bacdive_id", how="left")
+        print(f"Joined isolation metadata ({len(iso_meta_cols)} cols)")
+
     feature_cols = [c for c in feats.columns if c not in {"bacdive_id", "genome_accession"}]
-    feature_cols = feature_cols + iso_cols + md_cols + hmm_cols
+    feature_cols = feature_cols + iso_cols + md_cols + hmm_cols + kegg_cols + iso_meta_cols
 
     print(f"Training table: {len(df):,} strains × {len(feature_cols)} features")
     print(f"Distinct groups: {df['group'].nunique():,}")

@@ -34,6 +34,23 @@ def main() -> None:
         n_hmm_cols = len([c for c in hmm.columns if c != "genome_accession"])
         print(f"Joined HMM features ({n_hmm_cols} cols) into features table")
 
+    kegg_path = config.DATA / "kegg_modules.parquet"
+    if kegg_path.exists():
+        kegg = pd.read_parquet(kegg_path)
+        feats = feats.merge(kegg, on="genome_accession", how="left")
+        n_kegg_cols = len([c for c in kegg.columns if c != "genome_accession"])
+        print(f"Joined KEGG module completeness ({n_kegg_cols} cols) into features table")
+
+    iso_meta_path = config.DATA / "isolation_metadata.parquet"
+    if iso_meta_path.exists():
+        iso_meta = pd.read_parquet(iso_meta_path)
+        iso_meta["bacdive_id"] = iso_meta["bacdive_id"].astype(int)
+        feats["bacdive_id"] = feats["bacdive_id"].astype(int)
+        keep = ["bacdive_id", "iso_lat", "iso_lon", "iso_collection_year"]
+        keep += [c for c in iso_meta.columns if c.startswith(("iso_continent_", "iso_country_", "iso_host_kingdom_"))]
+        feats = feats.merge(iso_meta[keep], on="bacdive_id", how="left")
+        print(f"Joined isolation metadata ({len(keep) - 1} cols) into features table")
+
     print(f"Inputs: {len(feats):,} feature rows, {len(sm):,} strain↔medium links")
 
     X, y_matrix, medium_ids = build_training_table(feats, sm, pheno)
