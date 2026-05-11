@@ -54,12 +54,13 @@ APP_CONFIG = {
 
 
 def _read_access_token() -> str:
-    path = Path.home() / ".cerebrium" / "config.yaml"
-    cfg = yaml.safe_load(path.read_text())
-    token = cfg.get("accesstoken")
-    if not token:
-        sys.exit("No accesstoken in ~/.cerebrium/config.yaml — run `cerebrium login`.")
-    return token
+    env_token = os.environ.get("CEREBRIUM_API_KEY") or os.environ.get("CEREBRIUM_INFERENCE_KEY")
+    if env_token:
+        return env_token
+    sys.exit(
+        "Set CEREBRIUM_API_KEY to a JWT from the dashboard's API Keys section. "
+        "The CLI's accesstoken doesn't work for inference endpoints."
+    )
 
 
 def _load_pending_kofam(limit: int) -> list[dict[str, Any]]:

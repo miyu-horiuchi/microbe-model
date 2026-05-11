@@ -6,13 +6,10 @@ The relevant-KO HMM library (~734 MB) and per-KO bitscore thresholds are baked
 into the image via `include` in cerebrium.toml, so each replica loads them
 once at startup.
 """
-from __future__ import annotations
-
 import io
 import os
 import time
 import zipfile
-from typing import Any
 
 import pyhmmer
 import pyhmmer.easel
@@ -25,8 +22,21 @@ VERSION_FALLBACKS = (".1", ".2", ".3", ".4")
 EMPTY_ZIP_BYTES = 2_000
 DEFAULT_EVALUE = 1e-5
 
-HMM_PATH = "/cortex/app/kofam_relevant.hmm"
-THRESHOLDS_PATH = "/cortex/app/ko_thresholds.tsv"
+def _find(name: str) -> str:
+    here = os.path.dirname(os.path.abspath(__file__))
+    for candidate in (
+        os.path.join(here, name),
+        os.path.join("/cortex", name),
+        os.path.join("/cortex/app", name),
+        name,
+    ):
+        if os.path.exists(candidate):
+            return candidate
+    raise FileNotFoundError(f"{name} not found (tried cwd, /cortex, /cortex/app)")
+
+
+HMM_PATH = _find("kofam_relevant.hmm")
+THRESHOLDS_PATH = _find("ko_thresholds.tsv")
 
 _alphabet = pyhmmer.easel.Alphabet.amino()
 with pyhmmer.plan7.HMMFile(HMM_PATH) as _fh:
@@ -158,7 +168,7 @@ def _scan(proteins: list[str]) -> set[str]:
     return found
 
 
-def scan_genome(accession: str) -> dict[str, Any]:
+def scan_genome(accession: str) -> dict:
     try:
         contigs = _fetch_fasta(accession)
         if not contigs:
