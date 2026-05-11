@@ -67,6 +67,11 @@ notebooks/scratch/
 *.swp
 .DS_Store
 
+# Cerebrium build artifacts (HMM data files are duplicated from data/ for the image build)
+cerebrium/*/kofam_relevant.hmm
+cerebrium/*/ko_thresholds.tsv
+cerebrium/*/markers.hmm
+
 # Agent / tool state
 .claude/
 .letta/
