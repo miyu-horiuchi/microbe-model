@@ -201,9 +201,12 @@ def _existing_accessions(jsonl_path: Path) -> set[str]:
     with open(jsonl_path) as fh:
         for line in fh:
             try:
-                seen.add(str(json.loads(line)["genome_accession"]))
+                row = json.loads(line)
             except Exception:
                 continue
+            acc = row.get("genome_accession") or row.get("accession")
+            if acc:
+                seen.add(str(acc))
     return seen
 
 
