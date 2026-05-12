@@ -165,7 +165,7 @@ def scan_proteins(
     found: set[str] = set()
     if not seqs:
         return found
-    for top_hits in pyhmmer.hmmer.hmmsearch(hmms, seqs, E=DEFAULT_EVALUE):
+    for top_hits in pyhmmer.hmmer.hmmsearch(hmms, seqs, E=DEFAULT_EVALUE, cpus=1):
         raw_name = top_hits.query.name
         ko = raw_name.decode() if isinstance(raw_name, bytes) else raw_name
         thr = thresholds.get(ko, 0.0)
