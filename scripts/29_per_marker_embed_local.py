@@ -138,10 +138,20 @@ def main() -> None:
     parser.add_argument("--model", default="facebook/esm2_t30_150M_UR50D")
     parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--max", type=int, default=None)
+    parser.add_argument("--shard-id", type=int, default=0,
+                        help="This worker's shard (0-indexed). With --num-shards M, "
+                             "process bacdive_ids where id %% M == shard_id.")
+    parser.add_argument("--num-shards", type=int, default=1,
+                        help="Total shard count for multi-VM parallel runs.")
+    parser.add_argument("--out-name", default=None,
+                        help="Override output filename. Defaults to "
+                             "per_marker_embeddings.<shard_id>.jsonl when sharded.")
     args = parser.parse_args()
 
     if not MARKERS_HMM.exists():
         raise SystemExit(f"Missing {MARKERS_HMM}. Build it first.")
+    if args.shard_id < 0 or args.shard_id >= args.num_shards:
+        raise SystemExit(f"shard-id must be in [0, num-shards)")
 
     pheno_path = config.DATA / "bacdive_phenotypes.parquet"
     pheno = pd.read_parquet(pheno_path)
@@ -151,7 +161,14 @@ def main() -> None:
     ready = pheno[has_genome & has_label].copy()
     ready["bacdive_id"] = ready["bacdive_id"].astype(int)
 
-    out_path = config.DATA / "per_marker_embeddings.jsonl"
+    if args.num_shards > 1:
+        ready = ready[ready["bacdive_id"] % args.num_shards == args.shard_id]
+        out_name = args.out_name or f"per_marker_embeddings.{args.shard_id}.jsonl"
+        print(f"Shard {args.shard_id}/{args.num_shards}: {len(ready):,} genomes assigned")
+    else:
+        out_name = args.out_name or "per_marker_embeddings.jsonl"
+
+    out_path = config.DATA / out_name
     done_ids = _load_done_ids(out_path)
     pending = ready[~ready["bacdive_id"].isin(done_ids)]
     if args.max:
