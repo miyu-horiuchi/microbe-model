@@ -7,15 +7,15 @@ include = ['./*', 'main.py', 'cerebrium.toml', 'kofam_relevant.hmm', 'ko_thresho
 exclude = ['.*', '__pycache__', '*.pyc']
 
 [cerebrium.hardware]
-cpu = 4.0
-memory = 4.0
+cpu = 8.0
+memory = 8.0
 compute = "CPU"
 region = "us-east-1"
 
 [cerebrium.scaling]
-min_replicas = 0
+min_replicas = 2
 max_replicas = 10
-cooldown = 60
+cooldown = 300
 replica_concurrency = 1
 scaling_metric = "concurrency_utilization"
 scaling_target = 80

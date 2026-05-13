@@ -230,9 +230,12 @@ def main(out_path: str = "data/kofam_hits.jsonl", limit: int = 0):
         with open(out) as fh:
             for line in fh:
                 try:
-                    done.add(str(json.loads(line)["genome_accession"]))
+                    rec = json.loads(line)
                 except Exception:
                     continue
+                key = rec.get("genome_accession") or rec.get("accession")
+                if key:
+                    done.add(str(key))
 
     pending = [a for a in unique_accs if a not in done]
     if limit:

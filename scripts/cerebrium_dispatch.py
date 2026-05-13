@@ -30,7 +30,7 @@ import httpx
 import pandas as pd
 import yaml
 
-PROJECT_ID = "p-11b3c6c6"
+PROJECT_ID = "p-58781999"
 REGION_HOST = "https://api.aws.us-east-1.cerebrium.ai"
 
 APP_CONFIG = {
@@ -39,7 +39,7 @@ APP_CONFIG = {
         "concurrency": 10,
         "out_path": Path("data/kofam_hits.jsonl"),
         "id_field": "genome_accession",
-        "request_timeout": 600,
+        "request_timeout": 180,
         "ok_keys": ("ko_hits",),
     },
     "embed": {
@@ -72,9 +72,12 @@ def _load_pending_kofam(limit: int) -> list[dict[str, Any]]:
         with open(out_path) as fh:
             for line in fh:
                 try:
-                    done.add(str(json.loads(line)["genome_accession"]))
+                    row = json.loads(line)
                 except Exception:
                     continue
+                acc = row.get("genome_accession") or row.get("accession")
+                if acc:
+                    done.add(str(acc))
     pending = [a for a in accs if a not in done]
     if limit:
         pending = pending[:limit]
