@@ -47,16 +47,19 @@ def main() -> None:
     print(f"Parsed {len(parsed)} module rules")
 
     rows: list[dict] = []
-    n = 0
+    seen: set[str] = set()
     with open(hits_path) as fh:
         for line in tqdm(fh, desc="genomes"):
             r = json.loads(line)
-            ko_set = set(r["ko_hits"])
-            row: dict = {"genome_accession": r["genome_accession"]}
+            acc = r.get("genome_accession") or r.get("accession")
+            if not acc or acc in seen:
+                continue
+            seen.add(str(acc))
+            ko_set = set(r.get("ko_hits", []))
+            row: dict = {"genome_accession": acc}
             for mod_id, ast in parsed:
                 row[f"kegg_{mod_id}"] = evaluate(ast, ko_set, fractional=True)
             rows.append(row)
-            n += 1
 
     df = pd.DataFrame(rows)
     out = config.DATA / "kegg_modules.parquet"
