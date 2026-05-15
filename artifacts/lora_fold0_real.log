@@ -1,0 +1,44 @@
+✓ Initialized. View run at 
+https://modal.com/apps/miyu-wannaone-horiuchi/main/ap-Jq11TuXUoB8ukyZFNasD3P
+✓ Created objects.
+├── 🔨 Created mount 
+│   /Users/miyuhoriuchi/microbe-model/scripts/modal_train_lora.py
+├── 🔨 Created mount PythonPackage:microbe_model
+├── 🔨 Created mount data/marker_sequences.jsonl
+├── 🔨 Created mount data/bacdive_phenotypes.parquet
+├── 🔨 Created mount data/strain_catalog.parquet
+└── 🔨 Created function train.
+[modal-lora] fold=0 epochs=3 model=facebook/esm2_t12_35M_UR50D smoke=False
+[lora] device = cuda
+[lora] loaded 40,469 records with sequences + labels
+[lora] fold 0: 32,375 train / 8,094 val
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+
+[1ALoading weights:   0%|          | 0/198 [00:00<?, ?it/s]
+[1ALoading weights: 100%|██████████| 198/198 [00:00<00:00, 3225.72it/s]
+[transformers] [1mEsmModel LOAD REPORT[0m from: facebook/esm2_t12_35M_UR50D
+Key                       | Status     | 
+--------------------------+------------+-
+lm_head.layer_norm.bias   | UNEXPECTED | 
+lm_head.dense.weight      | UNEXPECTED | 
+lm_head.layer_norm.weight | UNEXPECTED | 
+lm_head.dense.bias        | UNEXPECTED | 
+lm_head.bias              | UNEXPECTED | 
+pooler.dense.weight       | MISSING    | 
+pooler.dense.bias         | MISSING    | 
+
+Notes:
+- UNEXPECTED:   can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+- MISSING:      those params were newly initialized because missing from the checkpoint. Consider training on your downstream task.
+[lora] trainable params: 2,151,815 / total: 35,652,216 (6.04%)
+[transformers] Caching is incompatible with gradient checkpointing in EsmLayer. Setting `use_cache=False`.
+  ep 1 step 50: loss=1009.8917  lr_lora=1.65e-05
+  ep 1 step 100: loss=775.5773  lr_lora=3.30e-05
+  ep 1 step 150: loss=559.4871  lr_lora=4.95e-05
+  ep 1 step 200: loss=430.9280  lr_lora=6.60e-05
+  ep 1 step 250: loss=351.4526  lr_lora=8.25e-05
+  ep 1 step 300: loss=298.9214  lr_lora=9.90e-05
+  ep 1 step 350: loss=260.4671  lr_lora=1.00e-04
+  ep 1 step 400: loss=232.1249  lr_lora=9.99e-05
+  ep 1 step 450: loss=214.9078  lr_lora=9.98e-05
+  ep 1 step 500: loss=196.5396  lr_lora=9.97e-05

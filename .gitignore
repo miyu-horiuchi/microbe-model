@@ -49,6 +49,14 @@ artifacts/*
 !artifacts/baseline_results_pre_pme.json
 !artifacts/retrain_with_pme.log
 !artifacts/materialize_pme.log
+!artifacts/extract_seqs_smoke.log
+!artifacts/extract_seqs_full.log
+!artifacts/lora_smoke.log
+!artifacts/lora_smoke2.log
+!artifacts/lora_fold0_real.log
+!artifacts/lora/
+artifacts/lora/*
+!artifacts/lora/fold0_results_smoke.json
 
 # Trained recommender models — needed for scripts/recommend.py to work after clone
 !models/

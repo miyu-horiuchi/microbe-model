@@ -1,0 +1,42 @@
+✓ Initialized. View run at 
+https://modal.com/apps/miyu-wannaone-horiuchi/main/ap-14sZzX1W4YsqgIp2y29INw
+✓ Created objects.
+├── 🔨 Created mount 
+│   /Users/miyuhoriuchi/microbe-model/scripts/modal_train_lora.py
+├── 🔨 Created mount PythonPackage:microbe_model
+├── 🔨 Created mount data/marker_sequences.jsonl
+├── 🔨 Created mount data/bacdive_phenotypes.parquet
+├── 🔨 Created mount data/strain_catalog.parquet
+└── 🔨 Created function train.
+[modal-lora] fold=0 epochs=1 model=facebook/esm2_t12_35M_UR50D smoke=True
+[smoke] truncated to 200 sequences
+[lora] device = cuda
+[lora] loaded 200 records with sequences + labels
+[lora] fold 0: 28 train / 172 val
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+
+[1ALoading weights:   0%|          | 0/198 [00:00<?, ?it/s]
+[1ALoading weights: 100%|██████████| 198/198 [00:00<00:00, 5899.50it/s]
+[transformers] [1mEsmModel LOAD REPORT[0m from: facebook/esm2_t12_35M_UR50D
+Key                       | Status     | 
+--------------------------+------------+-
+lm_head.bias              | UNEXPECTED | 
+lm_head.dense.weight      | UNEXPECTED | 
+lm_head.layer_norm.weight | UNEXPECTED | 
+lm_head.dense.bias        | UNEXPECTED | 
+lm_head.layer_norm.bias   | UNEXPECTED | 
+pooler.dense.weight       | MISSING    | 
+pooler.dense.bias         | MISSING    | 
+
+Notes:
+- UNEXPECTED:   can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+- MISSING:      those params were newly initialized because missing from the checkpoint. Consider training on your downstream task.
+[lora] trainable params: 2,151,815 / total: 35,652,216 (6.04%)
+[transformers] Caching is incompatible with gradient checkpointing in EsmLayer. Setting `use_cache=False`.
+[lora] epoch 1 done in 61s  val={'temp': {'mae': 28.067121505737305, 'n': 172}, 'ph': {'mae': None, 'n': 0}, 'salt': {'mae': None, 'n': 0}, 'oxy': {'f1_macro': None, 'n': 0}}
+[lora] wrote /artifacts/lora/fold0_results.json
+[modal-lora] wrote artifacts/lora/fold0_results_smoke.json
+[modal-lora] wrote artifacts/lora/fold0_best_smoke.pt  (8.6 MB)
+Stopping app - local entrypoint completed.
+✓ App completed. View run at 
+https://modal.com/apps/miyu-wannaone-horiuchi/main/ap-14sZzX1W4YsqgIp2y29INw

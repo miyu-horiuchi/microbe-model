@@ -1,0 +1,79 @@
+✓ Initialized. View run at 
+https://modal.com/apps/miyu-wannaone-horiuchi/main/ap-196pygWm6l2FWYPkEkdjUH
+Building image im-Zq0oFsY4NHhsLRUkQXD217
+
+=> Step 0: FROM base
+
+=> Step 1: RUN python -m pip install 'pyhmmer>=0.12' 'pyrodigal>=3.5' 'requests>=2.32'
+Looking in indexes: http://pypi-mirror.modal.local:5555/simple
+Collecting pyhmmer>=0.12
+  Downloading http://pypi-mirror.modal.local:5555/simple/pyhmmer/pyhmmer-0.12.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (14 kB)
+Collecting pyrodigal>=3.5
+  Downloading http://pypi-mirror.modal.local:5555/simple/pyrodigal/pyrodigal-3.7.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (15 kB)
+Collecting requests>=2.32
+  Downloading http://pypi-mirror.modal.local:5555/simple/requests/requests-2.34.2-py3-none-any.whl.metadata (4.8 kB)
+Collecting psutil<8.0,>=5.0 (from pyhmmer>=0.12)
+  Downloading http://pypi-mirror.modal.local:5555/simple/psutil/psutil-7.2.2-cp36-abi3-manylinux2010_x86_64.manylinux_2_12_x86_64.manylinux_2_28_x86_64.whl.metadata (22 kB)
+Collecting archspec~=0.2.0 (from pyrodigal>=3.5)
+  Downloading http://pypi-mirror.modal.local:5555/simple/archspec/archspec-0.2.6-py3-none-any.whl.metadata (4.4 kB)
+Collecting charset_normalizer<4,>=2 (from requests>=2.32)
+  Downloading http://pypi-mirror.modal.local:5555/simple/charset-normalizer/charset_normalizer-3.4.7-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (40 kB)
+Collecting idna<4,>=2.5 (from requests>=2.32)
+  Downloading http://pypi-mirror.modal.local:5555/simple/idna/idna-3.15-py3-none-any.whl.metadata (7.7 kB)
+Collecting urllib3<3,>=1.26 (from requests>=2.32)
+  Downloading http://pypi-mirror.modal.local:5555/simple/urllib3/urllib3-2.7.0-py3-none-any.whl.metadata (6.9 kB)
+Collecting certifi>=2023.5.7 (from requests>=2.32)
+  Downloading http://pypi-mirror.modal.local:5555/simple/certifi/certifi-2026.4.22-py3-none-any.whl.metadata (2.5 kB)
+Downloading http://pypi-mirror.modal.local:5555/simple/pyhmmer/pyhmmer-0.12.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (4.2 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 4.2/4.2 MB 187.8 MB/s  0:00:00
+Downloading http://pypi-mirror.modal.local:5555/simple/psutil/psutil-7.2.2-cp36-abi3-manylinux2010_x86_64.manylinux_2_12_x86_64.manylinux_2_28_x86_64.whl (155 kB)
+Downloading http://pypi-mirror.modal.local:5555/simple/pyrodigal/pyrodigal-3.7.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (3.0 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 3.0/3.0 MB 181.7 MB/s  0:00:00
+Downloading http://pypi-mirror.modal.local:5555/simple/archspec/archspec-0.2.6-py3-none-any.whl (81 kB)
+Downloading http://pypi-mirror.modal.local:5555/simple/requests/requests-2.34.2-py3-none-any.whl (73 kB)
+Downloading http://pypi-mirror.modal.local:5555/simple/charset-normalizer/charset_normalizer-3.4.7-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (214 kB)
+Downloading http://pypi-mirror.modal.local:5555/simple/idna/idna-3.15-py3-none-any.whl (72 kB)
+Downloading http://pypi-mirror.modal.local:5555/simple/urllib3/urllib3-2.7.0-py3-none-any.whl (131 kB)
+Downloading http://pypi-mirror.modal.local:5555/simple/certifi/certifi-2026.4.22-py3-none-any.whl (135 kB)
+Installing collected packages: urllib3, psutil, idna, charset_normalizer, certifi, archspec, requests, pyrodigal, pyhmmer
+
+Successfully installed archspec-0.2.6 certifi-2026.4.22 charset_normalizer-3.4.7 idna-3.15 psutil-7.2.2 pyhmmer-0.12.1 pyrodigal-3.7.1 requests-2.34.2 urllib3-2.7.0
+
+[notice] A new release of pip is available: 25.2 -> 26.1.1
+[notice] To update, run: pip install --upgrade pip
+Saving image...
+Image saved, took 801.09ms
+
+Built image im-Zq0oFsY4NHhsLRUkQXD217 in 4.20s
+
+
+✓ Created objects.
+├── 🔨 Created mount 
+│   /Users/miyuhoriuchi/microbe-model/scripts/36_extract_marker_sequences.py
+├── 🔨 Created mount data/markers/unified/unified_markers.hmm
+└── 🔨 Created function MarkerSeqExtractor.*.
+Marker-sequence extract: 200 genomes pending (0 cached)
+max_per_cat=16
+[setup] loaded 48 marker HMMs
+[setup] loaded 48 marker HMMs
+[setup] loaded 48 marker HMMs
+[setup] loaded 48 marker HMMs
+[setup] loaded 48 marker HMMs
+[setup] loaded 48 marker HMMs
+[setup] loaded 48 marker HMMs
+[setup] loaded 48 marker HMMs
+[setup] loaded 48 marker HMMs
+[setup] loaded 48 marker HMMs
+[setup] loaded 48 marker HMMs
+[setup] loaded 48 marker HMMs[setup] loaded 48 marker HMMs
+
+[setup] loaded 48 marker HMMs
+[setup] loaded 48 marker HMMs
+[setup] loaded 48 marker HMMs
+  100 ok / 1 fail
+
+Finished. 199 succeeded, 1 failed.
+Streamed to data/marker_sequences.jsonl
+Stopping app - local entrypoint completed.
+✓ App completed. View run at 
+https://modal.com/apps/miyu-wannaone-horiuchi/main/ap-196pygWm6l2FWYPkEkdjUH
