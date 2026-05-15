@@ -19,25 +19,35 @@ in pure culture.
 
 ## Status
 
-v3 — multi-source feature fusion. The corpus is 22,301 unique genomes from BacDive,
-each described by **five parallel feature paths** that XGBoost then combines:
+v4 — multi-source feature fusion with phenotype-targeted protein embeddings.
+46,029 BacDive strains over 22,300 unique genomes, each described by **six parallel
+feature paths** that XGBoost then combines (6,312 features total per genome):
 
 1. **Composition / codon / tetranucleotide statistics** (~355 cols, v0)
 2. **MediaDive recipe metadata** (medium pH, NaCl content of media this strain grows on)
-3. **Curated Pfam HMM markers** (48 verified, 8 categories: T_opt, pH, oxygen, salt,
+3. **Curated Pfam HMM markers** (144 cols, 8 categories: T_opt, pH, oxygen, salt,
    vitamins, nitrogen, carbon, special)
-4. **KEGG module completeness** — fractional 0–1 score for ~570 metabolic pathways via
-   KOfam + KEGG module rules (in progress)
+4. **KEGG module completeness** — fractional 0–1 score for 570 metabolic pathways via
+   completed KOfam scan + KEGG module rules
 5. **Isolation metadata** — country / continent / lat-lon / collection year / inferred
-   host kingdom from raw BacDive JSONs
-6. **ESM-2 protein-language-model embeddings** (t6 320-dim done; t30 640-dim partial,
-   running on Modal A10G)
+   host kingdom from raw BacDive JSONs (46 cols + 65 one-hot category encodings)
+6. **Phenotype-targeted ESM-2 embeddings (PTPE)** — for each genome, embed only the
+   proteins matching curated phenotype-relevant HMMs (cytochromes for oxygen, heat-shock
+   for temperature, Na⁺/H⁺ antiporters for pH/salt, etc.) with frozen ESM-2 t30, then
+   mean-pool per category. 8 markers × 641 dims = 5,128 cols.
 
-Latest A/B lift over the composition-only baseline:
-- **Salt MAE: 2.11 → 1.99 (-5.6%)**
-- **Oxygen F1: 0.357 → 0.379 (+5.9%)**
-- T_opt and pH neutral so far (the broad Pfam signals saturate; KEGG modules expected to
-  break the ceiling)
+Current 5-fold GroupKFold CV (full feature stack, commit pending):
+
+| Target | Metric | v3 (pre-PTPE) | v4 (+PTPE) | Δ |
+|---|---|---|---|---|
+| optimal_temperature_c | MAE °C | 2.74 | **2.67** | −2.4% |
+| optimal_ph | MAE | 0.47 | **0.47** | −1.0% |
+| oxygen_requirement | F1-macro | 0.41 | **0.40** | −2.4% (slight regression) |
+| salt_tolerance_pct | MAE % | 1.94 | **1.92** | −1.1% |
+
+PTPE adds modest, mixed lift on the regressors and slightly hurts oxygen F1. Frozen
+mean-pool may not be unlocking the PLM signal — next experiments are LoRA fine-tuning
+ESM-2 end-to-end and learned attention pooling per marker category.
 
 ## Approach
 
@@ -113,6 +123,11 @@ uv run --extra embeddings python scripts/11_extract_embeddings.py \
 # Or on Modal A10G GPUs (much faster, requires `modal setup` + ncbi-key secret):
 modal run scripts/modal_embed.py
 uv run python scripts/_materialize_embeddings.py             # JSONL → parquet
+
+# === Phenotype-targeted ESM-2 embeddings (PTPE) ===
+# Embed only proteins matching curated phenotype HMMs, pool per category.
+uv run modal run scripts/modal_per_marker_embed.py --model facebook/esm2_t30_150M_UR50D
+uv run python scripts/_materialize_per_marker_embeddings.py  # JSONL → parquet
 ```
 
 For overnight runs, `scripts/run_train_and_eval.sh` chains the core pipeline. The HMM,
@@ -195,15 +210,18 @@ headline result and `artifacts/eval_report.md` for the full eval.
 - MediaDive recipe metadata as a richer label source (v0.2)
 - ESM-2 t6 mean-pooled embeddings (v2)
 - 48 verified Pfam markers across 8 categories (v3)
-- KEGG module completeness pipeline (v3, scan in progress)
+- KEGG module completeness pipeline — full KOfam scan complete (v4)
 - Isolation metadata enrichment from raw BacDive JSON (v3)
-- Modal-based GPU embedding extraction (t30 in flight)
+- Modal-based GPU embedding extraction (t30 complete, 22,300 genomes)
+- **Phenotype-targeted ESM-2 embeddings (PTPE)** — HMM-gated mean-pool per category (v4)
 
 🔬 Open:
+- **LoRA fine-tune ESM-2** end-to-end on the phenotype heads (frozen mean-pool only
+  gave 1–2% lift; fine-tuning may unlock more PLM signal)
+- **Attention-pooled** per-category genome encoder instead of mean-pool (most novel
+  methodological direction)
 - LPSN/GTDB family proper join (for tighter GroupKFold)
 - Pyrodigal-GV for atypical genetic codes
-- Per-marker pooling for ESM-2 (embed only HMMER-hit proteins, average within family —
-  unlocks more of ESM-2's signal than mean-of-means does)
 - Co-occurrence / cross-feeding context from public metagenomes (MGnify, EMP, HMP)
 - Active learning loop: highlight novel-family strains where the model is uncertain,
   prioritize for wet-lab cultivation testing.

@@ -1,0 +1,19 @@
+Encoded 65 isolation-category features (104558 non-zero entries)
+Joined MediaDive features (5 cols) — 25,728/46,029 training rows have MediaDive data
+Joined HMM features (144 cols) — 46,029/46,029 training rows have HMM data
+Joined KEGG module completeness (570 cols) — 43,457/46,029 training rows have KEGG data
+Joined per-marker ESM-2 embeddings (5129 cols) — 46,026/46,029 training rows have PME data
+Joined isolation metadata (46 cols)
+Training table: 46,029 strains × 6312 features
+Distinct groups: 634
+Group sizes (top 10): {'Enterobacteriaceae': 2667, 'Streptomycetaceae': 2212, 'Bacillaceae': 1887, 'Lactobacillaceae': 1749, 'Pseudomonadaceae': 1623, 'Myxococcaceae': 1546, 'Streptococcaceae': 1174, 'Staphylococcaceae': 1071, 'Flavobacteriaceae': 984, 'Corynebacteriaceae': 903}
+
+Wrote training table to /Users/miyuhoriuchi/microbe-model/data/training_table.parquet
+Wrote per-strain predictions to /Users/miyuhoriuchi/microbe-model/artifacts/predictions.parquet
+
+Results summary (16647.1s):
+
+  optimal_temperature_c     mae        = 2.6743  (n_folds=5)
+  optimal_ph                mae        = 0.4685  (n_folds=5)
+  oxygen_requirement        f1_macro   = 0.4020  (n_folds=5)
+  salt_tolerance_pct        mae        = 1.9171  (n_folds=5)

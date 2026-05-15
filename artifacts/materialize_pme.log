@@ -1,0 +1,13 @@
+  read 5,000 lines, 3,186 unique genomes
+  read 10,000 lines, 6,012 unique genomes
+  read 15,000 lines, 8,193 unique genomes
+  read 20,000 lines, 9,381 unique genomes
+  read 25,000 lines, 11,269 unique genomes
+  read 30,000 lines, 13,720 unique genomes
+  read 35,000 lines, 15,993 unique genomes
+  read 40,000 lines, 18,247 unique genomes
+  read 45,000 lines, 19,703 unique genomes
+  read 50,000 lines, 21,570 unique genomes
+  read 55,000 lines, 22,300 unique genomes
+Parsed 55,046 lines → 22,300 unique genomes (83.2s)
+Wrote 22,300 rows × 5131 cols → /Users/miyuhoriuchi/microbe-model/data/per_marker_embeddings.parquet (615.9 MB, 170.5s)

@@ -103,6 +103,17 @@ def main() -> None:
         print(f"Joined KEGG module completeness ({len(kegg_cols)} cols) — "
               f"{n_with_kegg:,}/{len(df):,} training rows have KEGG data")
 
+    pme_path = config.DATA / "per_marker_embeddings.parquet"
+    pme_cols: list[str] = []
+    if pme_path.exists():
+        pme = pd.read_parquet(pme_path)
+        pme_cols = [c for c in pme.columns if c.startswith("pme_")]
+        pme_join = pme[["genome_accession"] + pme_cols].drop_duplicates("genome_accession")
+        df = df.merge(pme_join, on="genome_accession", how="left")
+        n_with_pme = df[pme_cols[0]].notna().sum() if pme_cols else 0
+        print(f"Joined per-marker ESM-2 embeddings ({len(pme_cols)} cols) — "
+              f"{n_with_pme:,}/{len(df):,} training rows have PME data")
+
     iso_meta_path = config.DATA / "isolation_metadata.parquet"
     iso_meta_cols: list[str] = []
     if iso_meta_path.exists():
@@ -117,7 +128,7 @@ def main() -> None:
         print(f"Joined isolation metadata ({len(iso_meta_cols)} cols)")
 
     feature_cols = [c for c in feats.columns if c not in {"bacdive_id", "genome_accession"}]
-    feature_cols = feature_cols + iso_cols + md_cols + hmm_cols + kegg_cols + iso_meta_cols
+    feature_cols = feature_cols + iso_cols + md_cols + hmm_cols + kegg_cols + iso_meta_cols + pme_cols
 
     print(f"Training table: {len(df):,} strains × {len(feature_cols)} features")
     print(f"Distinct groups: {df['group'].nunique():,}")

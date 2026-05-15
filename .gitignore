@@ -46,6 +46,9 @@ artifacts/*
 !artifacts/score_uncultured_media.log
 !artifacts/train_combined.log
 !artifacts/combined_results.json
+!artifacts/baseline_results_pre_pme.json
+!artifacts/retrain_with_pme.log
+!artifacts/materialize_pme.log
 
 # Trained recommender models — needed for scripts/recommend.py to work after clone
 !models/
