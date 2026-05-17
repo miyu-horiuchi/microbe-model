@@ -59,7 +59,10 @@ artifacts/lora/*
 !artifacts/lora/fold0_results_smoke.json
 !artifacts/lora/fold0_results.json
 !artifacts/lora/lambda_fold0_1ep_20260517T033023Z.log
+!artifacts/lora/fold0_results_oxygen.json
+!artifacts/lora/lambda_fold0_oxygen_1ep_20260517T103524Z.log
 !artifacts/lora_vs_baseline.md
+!artifacts/lora_oxygen_vs_all_task.md
 
 # Trained recommender models — needed for scripts/recommend.py to work after clone
 !models/
