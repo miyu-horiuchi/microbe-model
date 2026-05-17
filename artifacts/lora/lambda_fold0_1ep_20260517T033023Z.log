@@ -1,0 +1,57 @@
+[lambda-lora] starting fold=0 epochs=1 model=facebook/esm2_t12_35M_UR50D
+[lambda-lora] cuda=True device=NVIDIA A100-SXM4-40GB
+[lora] device = cuda
+[lora] loaded 40,469 records with sequences + labels
+[lora] fold 0: 32,375 train / 8,094 val
+Some weights of EsmModel were not initialized from the model checkpoint at facebook/esm2_t12_35M_UR50D and are newly initialized: ['esm.pooler.dense.bias', 'esm.pooler.dense.weight']
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+[lora] trainable params: 2,151,815 / total: 36,144,696 (5.95%)
+/home/ubuntu/microbe-model/.venv/lib/python3.11/site-packages/torch/utils/checkpoint.py:295: FutureWarning: `torch.cpu.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cpu', args...)` instead.
+  with torch.enable_grad(), device_autocast_ctx, torch.cpu.amp.autocast(**ctx.cpu_autocast_kwargs):  # type: ignore[attr-defined]
+  ep 1 step 50: loss=842.3137  lr_lora=4.95e-05
+  ep 1 step 100: loss=482.1193  lr_lora=9.90e-05
+  ep 1 step 150: loss=334.7604  lr_lora=9.98e-05
+  ep 1 step 200: loss=264.2583  lr_lora=9.93e-05
+  ep 1 step 250: loss=217.4865  lr_lora=9.85e-05
+  ep 1 step 300: loss=186.5597  lr_lora=9.74e-05
+  ep 1 step 350: loss=163.8552  lr_lora=9.59e-05
+  ep 1 step 400: loss=147.2159  lr_lora=9.41e-05
+  ep 1 step 450: loss=133.7593  lr_lora=9.21e-05
+  ep 1 step 500: loss=123.0141  lr_lora=8.97e-05
+  ep 1 step 550: loss=113.9034  lr_lora=8.71e-05
+  ep 1 step 600: loss=106.4140  lr_lora=8.43e-05
+  ep 1 step 650: loss=100.2909  lr_lora=8.12e-05
+  ep 1 step 700: loss=94.6046  lr_lora=7.79e-05
+  ep 1 step 750: loss=89.8550  lr_lora=7.44e-05
+  ep 1 step 800: loss=85.4993  lr_lora=7.08e-05
+  ep 1 step 850: loss=81.6606  lr_lora=6.70e-05
+  ep 1 step 900: loss=77.9707  lr_lora=6.31e-05
+  ep 1 step 950: loss=75.1319  lr_lora=5.91e-05
+  ep 1 step 1000: loss=72.3647  lr_lora=5.51e-05
+  ep 1 step 1050: loss=69.8078  lr_lora=5.10e-05
+  ep 1 step 1100: loss=67.5791  lr_lora=4.69e-05
+  ep 1 step 1150: loss=65.4581  lr_lora=4.28e-05
+  ep 1 step 1200: loss=63.5737  lr_lora=3.88e-05
+  ep 1 step 1250: loss=61.9102  lr_lora=3.49e-05
+  ep 1 step 1300: loss=60.3259  lr_lora=3.10e-05
+  ep 1 step 1350: loss=58.7075  lr_lora=2.73e-05
+  ep 1 step 1400: loss=57.2739  lr_lora=2.38e-05
+  ep 1 step 1450: loss=55.9584  lr_lora=2.04e-05
+  ep 1 step 1500: loss=54.7973  lr_lora=1.72e-05
+  ep 1 step 1550: loss=53.5961  lr_lora=1.42e-05
+  ep 1 step 1600: loss=52.5554  lr_lora=1.15e-05
+  ep 1 step 1650: loss=51.6486  lr_lora=9.01e-06
+  ep 1 step 1700: loss=50.7810  lr_lora=6.81e-06
+  ep 1 step 1750: loss=49.9158  lr_lora=4.90e-06
+  ep 1 step 1800: loss=49.0940  lr_lora=3.28e-06
+  ep 1 step 1850: loss=48.2504  lr_lora=1.99e-06
+  ep 1 step 1900: loss=47.4683  lr_lora=1.01e-06
+  ep 1 step 1950: loss=46.7232  lr_lora=3.56e-07
+  ep 1 step 2000: loss=46.0539  lr_lora=3.53e-08
+[lora] epoch 1 done in 19657s  val={'temp': {'mae': 3.666003942489624, 'n': 8066}, 'ph': {'mae': 0.5597922205924988, 'n': 705}, 'salt': {'mae': 1.815351128578186, 'n': 424}, 'oxy': {'f1_macro': 0.9448227977645267, 'n': 2266}}
+[lora] wrote artifacts/lora/fold0_results.json
+Traceback (most recent call last):
+  File "/home/ubuntu/microbe-model/scripts/run_lora_lambda.py", line 16, in <module>
+    print(f"[lambda-lora] done best={results.get(best)}", flush=True)
+                                                 ^^^^
+NameError: name 'best' is not defined

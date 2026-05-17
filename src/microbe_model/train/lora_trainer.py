@@ -38,6 +38,10 @@ class TrainConfig:
     max_proteins_per_category: int = 16
     save_dir: str = "artifacts/lora"
     grad_clip: float = 1.0
+    temp_weight: float = 1.0
+    ph_weight: float = 1.0
+    salt_weight: float = 1.0
+    oxy_weight: float = 1.0
 
 
 def _build_dataset(
@@ -257,6 +261,12 @@ def train_lora(
                     preds,
                     {k: v.to(device) for k, v in batch["labels"].items()},
                     {k: v.to(device) for k, v in batch["label_mask"].items()},
+                    target_weights={
+                        "temp": train_cfg.temp_weight,
+                        "ph": train_cfg.ph_weight,
+                        "salt": train_cfg.salt_weight,
+                        "oxy": train_cfg.oxy_weight,
+                    },
                 )
 
             loss = loss / max(train_cfg.grad_accum, 1)

@@ -1,0 +1,78 @@
+{
+  "model_cfg": {
+    "esm_model_name": "facebook/esm2_t12_35M_UR50D",
+    "lora_r": 8,
+    "lora_alpha": 16,
+    "lora_dropout": 0.05,
+    "lora_target": [
+      "query",
+      "value"
+    ],
+    "head_hidden_dim": 128,
+    "head_dropout": 0.1,
+    "max_seq_len": 512,
+    "max_proteins_per_cat": 6,
+    "gradient_checkpointing": true
+  },
+  "train_cfg": {
+    "fold": 0,
+    "epochs": 1,
+    "batch_size": 2,
+    "grad_accum": 8,
+    "lora_lr": 0.0001,
+    "head_lr": 0.001,
+    "weight_decay": 0.01,
+    "warmup_frac": 0.05,
+    "bf16": true,
+    "max_proteins_per_category": 16,
+    "save_dir": "artifacts/lora",
+    "grad_clip": 1.0
+  },
+  "history": [
+    {
+      "epoch": 1,
+      "train_loss": 45.74971861128626,
+      "val": {
+        "temp": {
+          "mae": 3.666003942489624,
+          "n": 8066
+        },
+        "ph": {
+          "mae": 0.5597922205924988,
+          "n": 705
+        },
+        "salt": {
+          "mae": 1.815351128578186,
+          "n": 424
+        },
+        "oxy": {
+          "f1_macro": 0.9448227977645267,
+          "n": 2266
+        }
+      },
+      "elapsed_s": 19656.821365594864
+    }
+  ],
+  "best": {
+    "epoch": 1,
+    "val": {
+      "temp": {
+        "mae": 3.666003942489624,
+        "n": 8066
+      },
+      "ph": {
+        "mae": 0.5597922205924988,
+        "n": 705
+      },
+      "salt": {
+        "mae": 1.815351128578186,
+        "n": 424
+      },
+      "oxy": {
+        "f1_macro": 0.9448227977645267,
+        "n": 2266
+      }
+    },
+    "score": 5.096324493895782
+  }
+}
