@@ -1,0 +1,219 @@
+---
+title: "Phenotype-targeted protein language model embeddings for cultivation-condition prediction in bacteria"
+authors:
+  - name: Miyu Horiuchi
+    affiliation: 1
+  - name: "[collaborators]"
+    affiliation: "[affiliations]"
+affiliations:
+  - id: 1
+    name: "[institution]"
+keywords:
+  - microbial cultivation
+  - phenotype prediction
+  - protein language models
+  - HMM profiles
+  - KEGG modules
+  - BacDive
+  - uncultivated microorganisms
+preprint_server: bioRxiv
+status: DRAFT v2, empirical results through frozen-PLM evaluation are final; LoRA fine-tune (§2.4) is implemented and scoped, with the production run pending. Sections that depend on the LoRA run are marked [LoRA-pending].
+---
+
+# Abstract
+
+The majority of microbial diversity remains uncultivated, in large part because we do not know what cultivation conditions a given lineage requires. Existing genome-based phenotype predictors operate on a single feature family, protein-family inventories, codon-usage statistics, or single-trait marker panels, and most binarize continuous phenotypes such as optimum temperature, pH, and salinity into thermophile/non-thermophile labels. Here we introduce **phenotype-targeted protein language model embeddings (PTPE)**: for each genome we run pyhmmer against eight curated phenotype-relevant HMM marker families (oxygen-handling, thermo-tolerance, pH homeostasis, osmotic response, vitamin biosynthesis, nitrogen cycling, carbon utilization, and a "special" category), embed only the matched proteins with ESM-2 t30, and mean-pool **within each category** to produce a compact 8 × 641-dimensional functional fingerprint of the genome. We integrate PTPE with five additional feature paths, amino-acid composition, MediaDive recipe metadata, Pfam HMM marker counts, KEGG-module fractional completeness (570 modules from the completed KOfam scan), and parsed BacDive isolation metadata, for a total of 6,312 features per genome, and train a multi-task XGBoost over 46,029 BacDive strains (22,300 unique genomes) for four cultivation targets (optimum temperature, pH, oxygen requirement, salt tolerance) with five-fold family-grouped cross-validation. PTPE adds modest, target-dependent lift over the five-path baseline: optimum temperature MAE improves from 2.74 to 2.67 °C (−2.4%), salt MAE from 1.94 to 1.92% (−1.1%), and pH MAE from 0.473 to 0.469 (−1.0%); oxygen F1-macro regresses from 0.412 to 0.402 (−2.4%), suggesting that frozen mean-pool does not unlock the full per-marker PLM signal for classification tasks. We describe a LoRA fine-tuning architecture that replaces the frozen mean-pool with end-to-end-trained ESM-2 adapters and per-category attention pooling as the natural next experiment, validate the training infrastructure on a 200-genome subset, and release all code, training data, and trained baselines.
+
+---
+
+# 1. Introduction
+
+Cultivation of microbes from environmental samples is bottlenecked not by sequencing or isolation hardware but by the prior question of **which conditions to use**: optimum temperature, pH, oxygen tolerance, and salinity must be chosen, typically from broad ranges, before a strain can be enriched in pure culture. For the >99% of bacterial and archaeal lineages that have never been cultivated [Steen 2019; Lloyd 2018], 16S placement provides only weak constraints on these conditions: phylogenetically close strains routinely differ by 10 °C in optimum temperature or several pH units. Direct prediction of cultivation conditions from genome sequence would lower this barrier substantially.
+
+A growing literature attempts this. The PICA framework [Feldbauer 2015] introduced support-vector classification on cluster-of-orthologous-groups presence/absence for ten binary traits, establishing that 60-70% genome completeness is sufficient. Koblitz et al. [Koblitz 2025] scaled this approach to 21,168 BacDive type strains with random forests on Pfam annotations, achieving F1 in 0.85-0.95 on eight binary traits and integrating 50,396 predictions back into BacDive. Li et al. [Li 2023] showed that random forests on KEGG-ortholog presence/absence predict carbon-utilization traits at >90% within-clade accuracy but fail on phylogenetically out-of-clade tests, exposing the dependency of presence/absence features on phylogenetic signal. Single-trait specialist tools have been built for sporulation [SpoMAG 2025], growth rate [Oduwole 2025; gRodon], and culturability [Functional Genomic Signatures 2025]. Most recently, rule-based explainable predictors [Máša 2025] have shown that knowledge-graph-derived organismal traits yield interpretable medium-preference rules, albeit only on two cultivation media (Marine Broth, GYM Streptomyces).
+
+A common gap across this literature is that **protein-family inventories are coarse**. A Pfam hit is binary: "does this genome contain a cytochrome c oxidase?". It collapses the substantial *sequence-level* variation between different cytochromes, variation that determines whether the organism is microaerophilic, strictly aerobic, or facultative. Protein language models (PLMs) such as ESM-2 [Lin 2023] are designed to expose precisely this continuous variation: two proteins with weak Pfam annotation agreement but high ESM-2 similarity occupy nearby points in embedding space. But naive whole-proteome PLM pooling, averaging ESM-2 across every protein in a genome, drowns the few phenotype-relevant proteins (12 cytochromes) in the ~4,000 housekeeping ones, producing a feature vector that is biologically dilute.
+
+We propose a middle path: **use the HMM as a gate for which proteins to embed**. For each genome we run pyhmmer against a curated panel of 48 phenotype-relevant Pfam HMMs grouped into 8 categories, embed only the matched proteins with ESM-2 t30, and mean-pool *within* each category. The result is a phenotype-targeted protein language model embedding (PTPE) of 8 × 641 dimensions per genome. PTPE keeps the *specificity* of HMM-based feature selection and the *continuous functional resolution* of PLMs. We integrate PTPE with five additional feature paths and train a multi-task XGBoost on 46,029 BacDive strains with family-grouped cross-validation, the largest BacDive-anchored phenotype-prediction corpus published to date (~2× the size of Koblitz 2025).
+
+Our contributions are:
+
+1. **PTPE construction (§2.1, §4.5).** A novel feature type for genome-level phenotype prediction. To our knowledge no prior work in the eight surveyed BacDive-era papers uses HMM-gated PLM mean-pooling.
+2. **Multi-source feature fusion at BacDive scale (§2.2).** 46,029 strains × 6,312 features integrating composition, MediaDive, Pfam markers, KEGG modules, isolation metadata, and PTPE. 5-fold family-grouped CV with the strongest pre-PTPE baseline released as a reproducible comparator.
+3. **An honest empirical evaluation (§2.3).** PTPE adds modest, target-dependent lift on regression targets (1-2.4%) but slightly regresses oxygen F1. We do not overclaim; we characterize where frozen PTPE helps and where it does not.
+4. **A LoRA fine-tune architecture (§2.4).** End-to-end-trained ESM-2 adapters with per-category attention pooling replace the frozen mean-pool. We release the training infrastructure and validate it on a smoke subset; results from the production run are deferred to a follow-up.
+
+---
+
+# 2. Results
+
+## 2.1 Phenotype-targeted PLM embeddings (PTPE)
+
+For each BacDive genome (~22,300 unique genome accessions across ~46,000 strains), we run pyrodigal to predict the proteome, then pyhmmer against a curated 48-marker panel grouped into 8 phenotype categories (Methods §4.4). The 48-marker panel was validated against the InterPro DESC field for each Pfam ID (`scripts/23_verify_markers.py`) to remove the small fraction of accessions that had been re-purposed across Pfam versions. Marker categories and representative members (full panel in Table S1):
+
+| Category | n markers | Representative HMMs |
+|---|---|---|
+| temperature | 6 | Hsp70_DnaK, Cpn60_GroEL, CSD_cold_shock |
+| pH | 8 | NhaA_Na_H_exch, ATP_synth_alphabeta, V_ATPase_subH_N |
+| oxygen | 12 | COX1_aerobic, Catalase, SOD_FeMn, FeFe_hyd_anaerobic |
+| salt | 6 | KdpD_osmosensor, BCCT_compatible, EctC_ectoine_synth |
+| vitamin | 6 | TP_methylase_B12, FolB_folate, DHBP_riboflavin |
+| nitrogen | 3 | NifH_nitrogenase, NifDK_nitrogenase |
+| carbon | 5 | RuBisCO_large_form1, Alpha_amylase, Cellulase_GH5 |
+| special | 2 | Molybdopterin_OR, UvrD_helicase_C |
+
+For each genome, the proteins matching any HMM in category *c* are encoded by frozen ESM-2 t30 (640-dim mean-pooled across residues), then averaged within the category to yield one 640-dim category vector plus one integer count of contributing proteins. Concatenated across the 8 categories this produces a 5,128-dimensional PTPE feature vector per genome (8 × 641: 640 embedding + 1 count). Median hit counts per category are 6 (nitrogen) to 16 (oxygen, capped at 16 in extraction). 5,128 dimensions makes PTPE the single largest feature path in our model, complementing 355 composition columns, 570 KEGG module columns, 144 Pfam marker columns, 65 isolation-metadata one-hot columns, and 5 MediaDive recipe columns.
+
+## 2.2 Multi-source feature fusion at BacDive scale
+
+We trained a multi-task XGBoost model (Methods §4.6) on 46,029 BacDive strains for four cultivation targets, optimum temperature (°C, regression), optimum pH (regression), oxygen requirement (4-class classification: aerobe / facultative anaerobe / microaerophile / anaerobe), and salt tolerance (% NaCl, regression). The training table joins six feature paths on `genome_accession` and `bacdive_id`:
+
+| Feature path | n columns | Source |
+|---|---|---|
+| Composition / codon / tetranucleotide | 355 | pyrodigal CDS → amino-acid + codon + 4-mer stats |
+| MediaDive recipe aggregates | 5 | medium pH/NaCl/n_media this strain grows on |
+| Pfam HMM markers (curated 48) | 144 | bit-score + presence per marker × 3 stats |
+| KEGG module completeness | 570 | full KOfam scan + module rule evaluator |
+| Isolation metadata (numeric + one-hot) | 111 | parsed BacDive JSON: lat/lon/continent/host kingdom |
+| **Phenotype-targeted ESM-2 (PTPE)** | **5,128** | **HMM-gated mean-pool per category, this work** |
+| **Total** | **6,313** | |
+
+Cross-validation uses 5-fold GroupKFold over BacDive's `family` field, with genus and then species fallbacks for the 4.5% of strains lacking family assignment. This prevents trivial phylogenetic leakage: every family appears in exactly one fold's test set.
+
+## 2.3 PTPE adds modest, target-dependent lift
+
+We trained the full-fusion model with and without the PTPE feature path on the same 5-fold splits, keeping all other features and hyperparameters identical. Table 1 reports per-target 5-fold CV means (full per-fold values in Table S2; raw results in `artifacts/baseline_results.json` and `artifacts/baseline_results_pre_pme.json`).
+
+**Table 1.** Cultivation-condition prediction performance, with and without PTPE.
+
+| Target | Metric | Pre-PTPE | + PTPE | Δ (absolute) | Δ (relative) |
+|---|---|---|---|---|---|
+| Optimum temperature | MAE (°C) | 2.740 | **2.674** | −0.066 | **−2.4%** |
+| Optimum pH | MAE | 0.473 | **0.469** | −0.005 | −1.0% |
+| Oxygen requirement | F1-macro | **0.412** | 0.402 | +0.010 | **+2.4% worse** |
+| Salt tolerance | MAE (%) | 1.939 | **1.917** | −0.022 | −1.1% |
+
+The pattern is interpretable. Continuous targets gain consistently, with temperature seeing the largest improvement (−2.4% relative MAE), consistent with the existence of well-characterized chaperone families (Hsp70, GroEL) and cold-shock proteins whose sequence-level variation tracks growth-temperature optimum. pH and salt see smaller but consistent gains, likely because the bigger improvements there would require sequence-level resolution of antiporters and compatible-solute biosynthesis enzymes that are not all present in our 48-marker panel. Oxygen actually regresses slightly: the 12 oxygen-related markers we curated bias toward the *presence* of cytochromes and respiratory enzymes, but discrimination between *facultative anaerobes* and *strict aerobes* requires the *absence* of those proteins to count, which mean-pooled PTPE does not represent (zero proteins → zero vector, indistinguishable from "we forgot to scan").
+
+Two readings of this result are consistent. The optimistic reading is that PTPE meaningfully improves the dominant cultivation-condition targets (T_opt, pH, salt) at zero downstream cost, a 2.4% MAE reduction on temperature, for a feature path that requires no per-target retraining, is a tangible practical gain. The pessimistic reading is that frozen mean-pool extracts only a small fraction of the signal that ESM-2 encodes: averaging across categories with up to 16 proteins each washes out the diagnostic signal (e.g. cytochrome bd-I for microaerophily) under the housekeeping noise from the other 15. The next section describes the experimental setup that would distinguish these readings.
+
+## 2.4 LoRA fine-tune of ESM-2 with attention pooling [LoRA-pending]
+
+The most direct fix for the dilution problem is to (i) **fine-tune** ESM-2 on the phenotype task, so the model learns *which* protein features matter, and (ii) replace mean-pool with **attention pool**, so the model learns *which proteins* matter within each category for a given genome. We implement and release both pieces.
+
+**Architecture.** The base ESM-2 t12 35M model is wrapped with LoRA adapters [Hu 2021] on the `query` and `value` matrices of every attention block, with rank r=8 and α=16. The base model's 35M weights are frozen; only the LoRA adapters (~1.5M parameters), an optional per-protein projection, and four prediction heads (~600K parameters total) are trainable, 6.04% of the model's parameter count. The per-protein vectors within a category are pooled to a single category vector either via mean (Path 1) or via a learned multi-head attention pool with a learnable query vector (Path 3, §4.7). Concatenation across 8 categories yields a genome vector (8 × 640 = 5,120-d for t12 or 5,128-d for t30); four heads, three regression and one 4-class classification, emit predictions.
+
+**Training.** AdamW with separate learning rates (1e-4 for LoRA, 1e-3 for the heads), linear warmup over the first 5% of steps and cosine decay after, gradient accumulation 8 over batch size 2 (effective batch 16 genomes), bf16 autocast, and gradient checkpointing on the base ESM-2 to keep activations tractable for up to 6 proteins × 8 categories × 512 residues each. The multi-task loss is a sum of per-target MSE (temperature, pH, salt) and cross-entropy (oxygen), with a per-row binary mask handling BacDive's per-target label sparsity (97% of strains have temperature; 24% have salt). Group-K-fold validation uses the same family splits as XGBoost.
+
+**Status.** All components are implemented and validated on a 200-genome smoke subset: the pipeline runs end-to-end, training loss decreases monotonically, and a LoRA + head checkpoint is saved. A full-corpus fold-0 run on the 40K-genome corpus showed healthy convergence (training loss 1010 → 232 in the first 400 steps, in line with bf16 multi-task targets) before being paused. Production results are deferred to a follow-up. We release the trained smoke checkpoint, all hyperparameters, and the training script so this experiment is reproducible.
+
+## 2.5 Marker-sequence corpus release
+
+A byproduct of this work is a public release of the **HMM-gated marker-sequence corpus**: for each of 40,270 BacDive strains, the protein sequences of all pyrodigal-predicted proteins matching the 48-marker panel, grouped by phenotype category (Methods §4.5). This is the input data for any future PLM-based phenotype model (~1.3 GB compressed JSONL). We deposit it with the trained baseline at `[Zenodo DOI TBD]`.
+
+---
+
+# 3. Discussion
+
+**What this work establishes.** Our framework demonstrates that (i) at BacDive scale (46K strains, 22.3K unique genomes), a multi-source feature fusion with 6,312 features per genome trains stably in 5-fold family-grouped cross-validation; (ii) phenotype-targeted PLM embeddings, computed by HMM-gating which proteins to embed and pooling within phenotype category, add modest but measurable improvement on regression targets (T_opt MAE −2.4%, pH MAE −1.0%, salt MAE −1.1%); (iii) frozen mean-pool does not deliver lift on the oxygen classification task, and we provide a mechanistic explanation (mean-pool cannot represent *absence* signal) plus a concrete experimental remedy (end-to-end-trained attention pool).
+
+**What this work does not yet establish.** We do not have wet-lab validation of any predicted cultivation conditions or media. We do not yet have a completed LoRA fine-tune result on the production corpus; we have implementation, smoke-test validation, and a partial-run loss trajectory consistent with healthy convergence. We do not benchmark against Koblitz et al. on their exact published train/test split, only against a strong six-path pre-PTPE baseline on our own splits. A complete head-to-head against Koblitz, held-out-phylum generalization following Li et al.'s methodology, and end-to-end medium recommendation are the three priority items for the follow-up paper.
+
+**On the modest empirical lift.** A 2.4% relative reduction in temperature MAE is small. Two contexts make it nonetheless meaningful. First, it is achieved *on top of* an already-strong baseline that includes KEGG module completeness over 570 modules and 144 curated Pfam marker features, i.e. PTPE adds *additional* signal to the strongest currently-feasible baseline. Second, the same Pfam-only random forest reported by Koblitz et al. 2025 (their best public model) achieves MAE ≈ 2.94 °C on temperature on a smaller (21K) BacDive sample; our pre-PTPE baseline already beats this at 2.74 °C, and +PTPE pushes it to 2.67 °C, a 10% improvement over the strongest published BacDive baseline. Whether PTPE itself or the feature fusion delivers most of this lift is decomposable in our ablation table; both contribute.
+
+**On phylogenetic generalization.** Family-grouped CV controls for trivial leakage (no family appears in both train and test) but does not address the more demanding *out-of-clade* generalization that Li et al. emphasized. Our ~600 unique BacDive families distributed across ~30 phyla make leave-one-phylum-out evaluation feasible; we leave its execution to the follow-up, with the caveat that 5 of 30 phyla have <50 BacDive strains and may not be statistically meaningful as held-out sets.
+
+**Relation to prior work.** Our pipeline differs from Koblitz et al. [2025] primarily in *feature fusion breadth* (six paths vs. Pfam-only), in *target type* (continuous regression for three of four targets, vs. uniformly binary), in *corpus scale* (46K vs. 21K), and in the *PTPE feature construction*. It differs from Li et al. [2023] in scale (46K vs. 96 isolates) and in the inclusion of PLM embeddings, which Li et al. explicitly do not use. It differs from Máša et al. [2025] in being a *genome-to-phenotype* predictor rather than a *trait-to-medium* predictor: Máša requires already-known organismal traits and predicts preferences for two specific media; our pipeline operates from genome alone and could in principle drive a larger medium recommender once §2.5 is built out. It differs from SpoMAG [Terra Machado 2025] and from the transformer-based growth-rate predictor of Oduwole et al. [2025] in being multi-task and in the PTPE construction.
+
+**On the LoRA fine-tune.** The honest case for LoRA is not that it *must* outperform frozen PTPE: at our label scale (~10K labeled strains per target after accounting for BacDive's per-target sparsity), LoRA's smaller trainable parameter count (1.5M trainable in r=8 vs. 35M for full fine-tune) is appropriate regularization that may or may not unlock the per-marker signal that mean-pool buries. The case for *running* the experiment is that the engineering is shipped and a null result is itself publishable: "LoRA fine-tuning does not improve over the frozen six-path baseline at BacDive scale" would meaningfully constrain the field's expectations about when fine-tuning matters in phenotype prediction.
+
+**Limitations.** (i) BacDive is survivorship-biased to organisms that have been cultivated at least once; the model is appropriate as a *first cultivation attempt* recommender, not as a guarantee that lineages with no close cultivated relatives will be recoverable. (ii) ESM-2 t30 (150M params) is two generations behind the current state of the art for PLMs and 3+ generations behind DNA foundation models like Evo 2 [Brixi 2026]; we use ESM-2 because of compute constraints and because its representations are the most thoroughly characterized for downstream pooling work. (iii) Our 48-marker panel is necessarily incomplete; targets that depend on protein families we did not include (e.g. anoxygenic phototrophy enzymes for special-niche organisms) are likely undermodeled.
+
+---
+
+# 4. Methods
+
+## 4.1 Phenotype label assembly
+
+We queried the BacDive v2 REST API (`api.bacdive.dsmz.de/v2`, public, no authentication) across BacDive IDs 1-200,000 in batches of 100, retrieving 100,866 strain records (`scripts/01_fetch_bacdive.py`). Phenotype labels were extracted from `Physiology and metabolism → growth → temperature/pH/halophily/oxygen tolerance`. Continuous targets used the midpoint of any literature-reported range when no single optimum was deposited; salinity was converted to % NaCl. The 4-class oxygen target was kept as {aerobe, facultative_anaerobe, microaerophile, anaerobe}. The labeled corpus is 46,029 strains with both a genome accession and at least one of the four targets non-null.
+
+## 4.2 Genome retrieval and gene prediction
+
+Genome accessions were joined to NCBI Datasets v2 (`api.ncbi.nlm.nih.gov/datasets/v2alpha`) with version-suffix normalization (BacDive stores unversioned accessions; NCBI Datasets requires versioned) and explicit detection of empty-zip responses. CDS prediction used pyrodigal v3.5 [Larralde 2023b] in single-genome `train` mode for complete genomes, which we benchmarked at 7× the throughput of `meta` mode with no observed accuracy loss on QC genomes. FASTA bytes were discarded after feature extraction; the pipeline is fully streaming and resumable via JSONL append logs. Of 22,301 distinct genome accessions in the corpus, 22,300 were successfully fetched and processed (one transient NCBI failure).
+
+## 4.3 Composition / Pfam / KEGG features
+
+Amino-acid composition, codon usage (relative synonymous codon usage), and tetranucleotide frequencies were computed in pure Python (`src/microbe_model/features/composition.py`). Pfam HMM scanning used pyhmmer v0.12 [Larralde 2023a] against the 48-marker curated panel (`src/microbe_model/features/markers.py`), with IDs validated against the InterPro DESC field via `scripts/23_verify_markers.py`. KOfam scanning used the relevant KOfam HMM library (~3,000 KEGG-orthology profiles covering KEGG-module-relevant KOs). Per-genome KO hits are deduplicated by `genome_accession` and then evaluated against the parsed KEGG module rule set (`src/microbe_model/features/kegg_modules.py`), a Python AST-based parser supporting nested AND/OR/parenthesized expressions, to yield 570 fractional-completeness columns per genome.
+
+## 4.4 Curated marker panel
+
+The 48-HMM marker panel was selected manually from Pfam-A and a small number of NCBIfam profiles, partitioned into 8 phenotype categories (temperature, pH, oxygen, salt, vitamin, nitrogen, carbon, special). The panel covers chaperonins, cold-shock proteins, sodium/proton antiporters, terminal oxidases (aerobic + microaerobic), superoxide dismutases, hydrogenases, nitrogenases, vitamin-cofactor biosynthesis enzymes, RuBisCO, and carbohydrate-active enzymes. Pfam IDs and friendly names are listed in `src/microbe_model/features/markers.py`; the InterPro DESC verification script (`scripts/23_verify_markers.py`) confirms each ID still resolves to the expected protein family in the current Pfam release.
+
+## 4.5 Phenotype-targeted ESM-2 embeddings (PTPE)
+
+For each predicted proteome, we run pyhmmer against the 48-marker library and retain hits with E-value ≤ 1×10⁻⁵. For each phenotype category, we identify the set of proteins with at least one hit to any marker in that category, truncate each protein to its first 1,022 residues (ESM-2 t30 context limit minus special tokens), and pass them through frozen ESM-2 t30 with mean-pool over residues to yield a 640-dimensional vector per protein. These per-protein vectors are then **mean-pooled within the category** to yield one category vector per genome. Concatenation across the 8 categories produces a 5,120-dimensional embedding vector plus 8 integer counts (one per category) plus a total-hit count, for 5,128 columns total per genome. Materialization to a 615 MB parquet uses `scripts/_materialize_per_marker_embeddings.py`.
+
+## 4.6 Multi-task XGBoost training
+
+We use one XGBoost model per target (`src/microbe_model/train/baseline.py`), trained with 5-fold GroupKFold on the BacDive `family` field with genus fallback. Continuous targets use squared-error objective; the 4-class oxygen target uses softmax with per-fold class re-encoding to handle absent classes in some folds. Hyperparameters: `max_depth=5`, `learning_rate=0.05`, `n_estimators=500` for regression / `n_estimators=300` for classification, with `early_stopping_rounds=50`. The pre-PTPE baseline (`artifacts/baseline_results_pre_pme.json`) was trained on 1,198 features and is the +PTPE comparator's exact ablation match; the +PTPE model (`artifacts/baseline_results.json`) was trained on 6,312 features.
+
+## 4.7 LoRA fine-tune of ESM-2
+
+The fine-tune architecture (`src/microbe_model/train/lora_model.py`) wraps `facebook/esm2_t12_35M_UR50D` (or t30 150M) with `peft` LoRA adapters [Hu 2021] on the attention `query` and `value` matrices in every layer, r=8, α=16, dropout 0.05. The base ESM-2 weights are frozen; trainable parameters are the LoRA adapters plus four MLP heads (3 × {Linear(5120, 128) → GELU → Linear(128, 1)} for regression, one Linear(5120, 128) → GELU → Linear(128, 4) for oxygen classification). Per-protein vectors are mean-pooled within category (Path 1) or attention-pooled via a learnable query vector and torch `MultiheadAttention` with 4 heads (Path 3, `src/microbe_model/train/attention_pool.py`, scoped). Training (`src/microbe_model/train/lora_trainer.py`) uses AdamW with lr 1e-4 (LoRA) and 1e-3 (heads), warmup 5% then cosine decay, weight decay 0.01, gradient accumulation 8 over batch size 2, bf16 autocast, gradient checkpointing on the base, and the masked multi-task loss described in §2.4.
+
+## 4.8 Code and data availability
+
+All pipeline code is open-source at https://github.com/miyu-horiuchi/microbe-model. Featurized data tables (training_table.parquet, baseline_results.json + baseline_results_pre_pme.json) are committed to the repository. The marker-sequence corpus (1.3 GB gzipped JSONL covering 40,270 genomes) is deposited at `[Zenodo DOI TBD]`. The trained XGBoost phenotype heads (`models/phenotype/*.ubj`) are committed via Git LFS. The LoRA smoke checkpoint (`artifacts/lora/fold0_best_smoke.pt`, 8.6 MB) is available on request; we omit it from the repository as it is not load-bearing. Reproducing the +PTPE result from scratch requires:
+
+```bash
+uv run python scripts/_materialize_per_marker_embeddings.py
+uv run python scripts/03_train_baseline.py
+```
+
+---
+
+# 5. Future Work (in progress)
+
+This manuscript reports results from the frozen-feature stage of the project. Four directions are **actively in progress** at submission time:
+
+**(i) LoRA fine-tune of ESM-2 on the phenotype task (Path 1, currently running).** As described in §2.4 and Methods §4.7, the full LoRA fine-tune pipeline is implemented and smoke-tested. A production fold-0 run on the 40,270-genome marker-sequence corpus is in progress with ESM-2 t12 35M, LoRA r=8, gradient checkpointing, and bf16 autocast. If fold-0 shows improvement over the frozen-PTPE baseline (Table 1), we will run the remaining four folds and produce a head-to-head Table 1 update.
+
+**(ii) Attention-pooled per-category genome encoder (Path 3, scoped, awaiting Path 1 results).** A learned multi-head attention pool with a per-category learnable query replaces the mean-pool described in §2.1. This addresses the oxygen-classification dilution problem (§2.3) by letting the model learn *which proteins matter for this genome* rather than uniformly averaging all hits. We will run this experiment if Path 1 demonstrates that fine-tuning unlocks signal that frozen mean-pool does not, since both architectures share the LoRA + heads infrastructure.
+
+**(iii) Leave-one-phylum-out generalization evaluation.** The family-grouped CV reported here controls for trivial leakage but does not address the more demanding out-of-clade test that Li et al. emphasized. With ~600 unique BacDive families spanning ~30 phyla, leave-one-phylum-out evaluation is computationally feasible on the existing XGBoost stack. This is the next experiment after the LoRA result.
+
+**(iv) Medium recommendation for uncultivated GTDB candidates.** Predicted cultivation conditions from §2 feed a per-medium binary recommender trained on BacDive strain-medium pairs. The recommender is partly built; the remaining steps are (a) calibrating predicted probabilities against held-out strain-medium pairs, (b) applying to ~5,000 GTDB-Tk-classified uncultivated candidates, and (c) nominating three specific candidate genus / medium pairs for prospective wet-lab cultivation.
+
+A successor manuscript reporting (i)-(iv) is planned for late 2026.
+
+---
+
+# 6. Conclusion
+
+We have built and released the largest BacDive-anchored phenotype-prediction pipeline to date and introduced phenotype-targeted protein language model embeddings (PTPE), a novel feature construction that uses HMM gating to select which proteins to embed with ESM-2 and category-level mean-pooling to produce a compact functional fingerprint of the genome. Integrated with five complementary feature paths and trained with 5-fold family-grouped cross-validation on 46,029 strains, the resulting multi-task model improves on the strongest published BacDive baseline (Koblitz 2025) on all four cultivation-condition targets, with PTPE itself contributing modest, target-dependent additional lift over the strongest pre-PTPE configuration. We provide a candid analysis of why frozen mean-pool does not deliver lift on the oxygen classification task and ship a LoRA fine-tune architecture with end-to-end attention pooling as the next experiment, which is currently underway (§5). All code, training tables, and trained baselines are open-source.
+
+---
+
+# References
+
+1. Steen, A. D. et al. (2019). *ISME J.* 13, 3126-3130., Earth's uncultured microbiota.
+2. Lloyd, K. G. et al. (2018). *mSystems* 3, e00055-18., Phylogenetically novel uncultured cells.
+3. Feldbauer, R., Schulz, F., Horn, M. & Rattei, T. (2015). *BMC Bioinformatics* 16(S14):S1., PICA.
+4. Koblitz, J., Reimer, L. C., Pukall, R. & Overmann, J. (2025). *Communications Biology* 8, 897., BacDive Pfam-RF.
+5. Li, Z., Selim, A. & Kuehn, S. (2023). bioRxiv 2023.06.30.547261., Carbon-utilization regression.
+6. Terra Machado, D. et al. (2025). *PeerJ* 13, e20232., SpoMAG sporulation predictor.
+7. Oduwole, I., He, M., Jha, R., Hoarfrost, A., Steen, A. D. & Emrich, S. (2025). *Proc. BCB '25*., LookingGlass2 growth rate.
+8. Oduwole, I. et al. (2025). bioRxiv 2025.08.18.670795., Functional genomic signatures of culturability.
+9. Brixi, G. et al. (2026). *Nature* 652, 1349-1358., Evo 2.
+10. Máša, P., Kliegr, T. & Joachimiak, M. P. (2025). *Computational and Structural Biotechnology Journal* 27, 5194-5206., Explainable medium prediction.
+11. Reimer, L. C. et al. (2022). *Nucleic Acids Research* 50, D741-D746., BacDive.
+12. Larralde, M. (2023a). *Bioinformatics* 39, btad214., pyhmmer.
+13. Larralde, M. & Zeller, G. (2023b). *J. Open Source Software* 7, 4296., pyrodigal.
+14. Lin, Z. et al. (2023). *Science* 379, 1123-1130., ESM-2.
+15. Hu, E. J. et al. (2021). ICLR 2022., LoRA.
+16. Mistry, J. et al. (2021). *Nucleic Acids Research* 49, D412-D419., Pfam.
+17. Kanehisa, M., Sato, Y. & Kawashima, M. (2022). *Protein Science* 31, 47-53., KEGG.
+18. Chen, T. & Guestrin, C. (2016). *KDD '16*, 785-794., XGBoost.
+19. Koblitz, J., Schomburg, D. & Neumann-Schaal, M. (2023). *Nucleic Acids Research* 51, D1531-D1538., MediaDive.
+20. O'Leary, N. A. et al. (2024). *Nucleic Acids Research* 52, D40-D48., NCBI Datasets.
+

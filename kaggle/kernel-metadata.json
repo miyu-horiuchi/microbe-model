@@ -1,0 +1,19 @@
+{
+  "id": "miyuiu/lora-fine-tune-esm-2-on-bacdive-phenotypes",
+  "title": "LoRA fine-tune ESM-2 on BacDive phenotypes",
+  "code_file": "lora_train_kaggle.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": "true",
+  "enable_gpu": "true",
+  "enable_internet": "true",
+  "dataset_sources": [
+    "miyuiu/bacdive-marker-sequences",
+    "miyuiu/bacdive-tables",
+    "miyuiu/microbe-model-code"
+  ],
+  "competition_sources": [],
+  "kernel_sources": [],
+  "machine_shape": "GpuT4x2",
+  "accelerator": "GpuT4x2"
+}
