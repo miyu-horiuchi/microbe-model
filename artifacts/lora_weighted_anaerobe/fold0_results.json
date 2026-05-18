@@ -1,0 +1,88 @@
+{
+  "model_cfg": {
+    "esm_model_name": "facebook/esm2_t12_35M_UR50D",
+    "lora_r": 8,
+    "lora_alpha": 16,
+    "lora_dropout": 0.05,
+    "lora_target": [
+      "query",
+      "value"
+    ],
+    "head_hidden_dim": 128,
+    "head_dropout": 0.1,
+    "max_seq_len": 512,
+    "max_proteins_per_cat": 6,
+    "gradient_checkpointing": true
+  },
+  "train_cfg": {
+    "fold": 0,
+    "epochs": 1,
+    "batch_size": 2,
+    "grad_accum": 8,
+    "lora_lr": 0.0001,
+    "head_lr": 0.001,
+    "weight_decay": 0.01,
+    "warmup_frac": 0.05,
+    "bf16": true,
+    "max_proteins_per_category": 16,
+    "save_dir": "artifacts/lora_weighted_anaerobe",
+    "grad_clip": 1.0,
+    "temp_weight": 1.0,
+    "ph_weight": 1.0,
+    "salt_weight": 1.0,
+    "oxy_weight": 1.0,
+    "oxy_class_weights": [
+      1.0,
+      1.5,
+      1.0,
+      1.0
+    ]
+  },
+  "history": [
+    {
+      "epoch": 1,
+      "train_loss": 51.366838841350884,
+      "val": {
+        "temp": {
+          "mae": 3.659961462020874,
+          "n": 8066
+        },
+        "ph": {
+          "mae": 0.564297616481781,
+          "n": 705
+        },
+        "salt": {
+          "mae": 1.7560514211654663,
+          "n": 424
+        },
+        "oxy": {
+          "f1_macro": 0.9447762839519784,
+          "n": 2266
+        }
+      },
+      "elapsed_s": 19573.33940076828
+    }
+  ],
+  "best": {
+    "epoch": 1,
+    "val": {
+      "temp": {
+        "mae": 3.659961462020874,
+        "n": 8066
+      },
+      "ph": {
+        "mae": 0.564297616481781,
+        "n": 705
+      },
+      "salt": {
+        "mae": 1.7560514211654663,
+        "n": 424
+      },
+      "oxy": {
+        "f1_macro": 0.9447762839519784,
+        "n": 2266
+      }
+    },
+    "score": 5.035534215716143
+  }
+}

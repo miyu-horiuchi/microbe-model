@@ -1,0 +1,321 @@
+{
+  "checkpoint": "artifacts/lora_weighted_anaerobe/fold0_best.pt",
+  "n": 2266,
+  "classes": [
+    "aerobe",
+    "anaerobe",
+    "facultative_anaerobe",
+    "microaerobe"
+  ],
+  "accuracy": 0.953663,
+  "macro_f1": 0.944776,
+  "macro_f1_all_classes": 0.472388,
+  "confusion_matrix": [
+    [
+      1535,
+      38,
+      0,
+      0
+    ],
+    [
+      67,
+      626,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0
+    ]
+  ],
+  "per_class": {
+    "aerobe": {
+      "precision": 0.958177,
+      "recall": 0.975842,
+      "f1": 0.966929,
+      "support": 1573,
+      "predicted": 1602
+    },
+    "anaerobe": {
+      "precision": 0.942771,
+      "recall": 0.903319,
+      "f1": 0.922623,
+      "support": 693,
+      "predicted": 664
+    },
+    "facultative_anaerobe": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "support": 0,
+      "predicted": 0
+    },
+    "microaerobe": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "support": 0,
+      "predicted": 0
+    }
+  },
+  "wrong_predictions": [
+    {
+      "bacdive_id": 499,
+      "genome_accession": "GCA_000429505",
+      "group": "Alteromonadaceae",
+      "true": "anaerobe",
+      "pred": "aerobe",
+      "confidence": 0.997351,
+      "true_probability": 0.002648,
+      "margin": 0.994702
+    },
+    {
+      "bacdive_id": 481,
+      "genome_accession": "GCA_003363485",
+      "group": "Alteromonadaceae",
+      "true": "anaerobe",
+      "pred": "aerobe",
+      "confidence": 0.996132,
+      "true_probability": 0.003865,
+      "margin": 0.992268
+    },
+    {
+      "bacdive_id": 168525,
+      "genome_accession": "GCA_006386545",
+      "group": "Sphaerotilaceae",
+      "true": "anaerobe",
+      "pred": "aerobe",
+      "confidence": 0.995269,
+      "true_probability": 0.004727,
+      "margin": 0.990543
+    },
+    {
+      "bacdive_id": 6314,
+      "genome_accession": "GCA_900475835",
+      "group": "Jonesiaceae",
+      "true": "anaerobe",
+      "pred": "aerobe",
+      "confidence": 0.995095,
+      "true_probability": 0.004901,
+      "margin": 0.990193
+    },
+    {
+      "bacdive_id": 498,
+      "genome_accession": "GCA_000429485",
+      "group": "Alteromonadaceae",
+      "true": "anaerobe",
+      "pred": "aerobe",
+      "confidence": 0.994422,
+      "true_probability": 0.005572,
+      "margin": 0.988851
+    },
+    {
+      "bacdive_id": 17841,
+      "genome_accession": "GCA_000975055",
+      "group": "Demequinaceae",
+      "true": "anaerobe",
+      "pred": "aerobe",
+      "confidence": 0.993803,
+      "true_probability": 0.006191,
+      "margin": 0.987612
+    },
+    {
+      "bacdive_id": 483,
+      "genome_accession": "GCA_000421165",
+      "group": "Alteromonadaceae",
+      "true": "anaerobe",
+      "pred": "aerobe",
+      "confidence": 0.990431,
+      "true_probability": 0.009555,
+      "margin": 0.980876
+    },
+    {
+      "bacdive_id": 23140,
+      "genome_accession": "GCA_016925555",
+      "group": "Mycoplasmataceae",
+      "true": "aerobe",
+      "pred": "anaerobe",
+      "confidence": 0.981044,
+      "true_probability": 0.018747,
+      "margin": 0.962297
+    },
+    {
+      "bacdive_id": 17840,
+      "genome_accession": "GCA_000975035",
+      "group": "Demequinaceae",
+      "true": "anaerobe",
+      "pred": "aerobe",
+      "confidence": 0.979909,
+      "true_probability": 0.020063,
+      "margin": 0.959846
+    },
+    {
+      "bacdive_id": 148058,
+      "genome_accession": "GCF_000005845.2",
+      "group": "Enterobacteriaceae",
+      "true": "anaerobe",
+      "pred": "aerobe",
+      "confidence": 0.977617,
+      "true_probability": 0.022345,
+      "margin": 0.955271
+    },
+    {
+      "bacdive_id": 149706,
+      "genome_accession": "GCF_000005845.2",
+      "group": "Enterobacteriaceae",
+      "true": "anaerobe",
+      "pred": "aerobe",
+      "confidence": 0.977617,
+      "true_probability": 0.022345,
+      "margin": 0.955271
+    },
+    {
+      "bacdive_id": 156346,
+      "genome_accession": "GCF_000005845.2",
+      "group": "Enterobacteriaceae",
+      "true": "anaerobe",
+      "pred": "aerobe",
+      "confidence": 0.977617,
+      "true_probability": 0.022345,
+      "margin": 0.955271
+    },
+    {
+      "bacdive_id": 140022,
+      "genome_accession": "GCF_014068355.1",
+      "group": "Mycoplasmataceae",
+      "true": "aerobe",
+      "pred": "anaerobe",
+      "confidence": 0.976127,
+      "true_probability": 0.02361,
+      "margin": 0.952517
+    },
+    {
+      "bacdive_id": 164735,
+      "genome_accession": "GCF_943590815.1",
+      "group": "Enterobacteriaceae",
+      "true": "anaerobe",
+      "pred": "aerobe",
+      "confidence": 0.969284,
+      "true_probability": 0.030661,
+      "margin": 0.938623
+    },
+    {
+      "bacdive_id": 133974,
+      "genome_accession": "GCA_001544515",
+      "group": "Burkholderiaceae",
+      "true": "anaerobe",
+      "pred": "aerobe",
+      "confidence": 0.965083,
+      "true_probability": 0.034798,
+      "margin": 0.930284
+    },
+    {
+      "bacdive_id": 133484,
+      "genome_accession": "GCA_900102145",
+      "group": "Thermaceae",
+      "true": "aerobe",
+      "pred": "anaerobe",
+      "confidence": 0.955376,
+      "true_probability": 0.044292,
+      "margin": 0.911083
+    },
+    {
+      "bacdive_id": 154004,
+      "genome_accession": "GCF_982443925.1",
+      "group": "Enterobacteriaceae",
+      "true": "anaerobe",
+      "pred": "aerobe",
+      "confidence": 0.953645,
+      "true_probability": 0.046276,
+      "margin": 0.907368
+    },
+    {
+      "bacdive_id": 168303,
+      "genome_accession": "GCA_004307015",
+      "group": "Thermaceae",
+      "true": "aerobe",
+      "pred": "anaerobe",
+      "confidence": 0.949521,
+      "true_probability": 0.050177,
+      "margin": 0.899345
+    },
+    {
+      "bacdive_id": 133976,
+      "genome_accession": "GCA_001544495",
+      "group": "Burkholderiaceae",
+      "true": "anaerobe",
+      "pred": "aerobe",
+      "confidence": 0.94727,
+      "true_probability": 0.052558,
+      "margin": 0.894712
+    },
+    {
+      "bacdive_id": 8608,
+      "genome_accession": "GCF_900476065.1",
+      "group": "Metamycoplasmataceae",
+      "true": "aerobe",
+      "pred": "anaerobe",
+      "confidence": 0.940865,
+      "true_probability": 0.058377,
+      "margin": 0.882487
+    },
+    {
+      "bacdive_id": 132346,
+      "genome_accession": "GCA_002259755",
+      "group": "Bifidobacteriaceae",
+      "true": "aerobe",
+      "pred": "anaerobe",
+      "confidence": 0.937469,
+      "true_probability": 0.062389,
+      "margin": 0.87508
+    },
+    {
+      "bacdive_id": 133975,
+      "genome_accession": "GCA_001544475",
+      "group": "Burkholderiaceae",
+      "true": "anaerobe",
+      "pred": "aerobe",
+      "confidence": 0.933766,
+      "true_probability": 0.06607,
+      "margin": 0.867696
+    },
+    {
+      "bacdive_id": 132158,
+      "genome_accession": "GCA_000807275",
+      "group": "Orbaceae",
+      "true": "anaerobe",
+      "pred": "aerobe",
+      "confidence": 0.933592,
+      "true_probability": 0.06628,
+      "margin": 0.867312
+    },
+    {
+      "bacdive_id": 140694,
+      "genome_accession": "GCA_003336745",
+      "group": "Thermaceae",
+      "true": "aerobe",
+      "pred": "anaerobe",
+      "confidence": 0.9297,
+      "true_probability": 0.069824,
+      "margin": 0.859876
+    },
+    {
+      "bacdive_id": 133991,
+      "genome_accession": "GCA_039544205",
+      "group": "Ferrimonadaceae",
+      "true": "anaerobe",
+      "pred": "aerobe",
+      "confidence": 0.925231,
+      "true_probability": 0.074638,
+      "margin": 0.850593
+    }
+  ]
+}
