@@ -42,6 +42,7 @@ class TrainConfig:
     ph_weight: float = 1.0
     salt_weight: float = 1.0
     oxy_weight: float = 1.0
+    oxy_class_weights: tuple[float, ...] | None = None
 
 
 def _build_dataset(
@@ -267,6 +268,7 @@ def train_lora(
                         "salt": train_cfg.salt_weight,
                         "oxy": train_cfg.oxy_weight,
                     },
+                    oxy_class_weights=train_cfg.oxy_class_weights,
                 )
 
             loss = loss / max(train_cfg.grad_accum, 1)

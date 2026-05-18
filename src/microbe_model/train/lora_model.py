@@ -155,6 +155,7 @@ def masked_multitask_loss(
     labels: dict[str, torch.Tensor],
     label_mask: dict[str, torch.Tensor],
     target_weights: dict[str, float] | None = None,
+    oxy_class_weights: tuple[float, ...] | None = None,
 ) -> tuple[torch.Tensor, dict[str, float]]:
     """Sum of per-target losses, weighted by the binary label mask.
 
@@ -180,7 +181,17 @@ def masked_multitask_loss(
     mask_oxy = label_mask["oxy"].float()
     logits = preds["oxy"]
     labels_oxy = labels["oxy"].long()
-    per_row_loss = nn.functional.cross_entropy(logits, labels_oxy, reduction="none")
+    class_weight = None
+    if oxy_class_weights is not None:
+        if len(oxy_class_weights) != logits.shape[-1]:
+            raise ValueError("oxy_class_weights must match the number of oxygen classes")
+        class_weight = torch.tensor(oxy_class_weights, dtype=logits.dtype, device=logits.device)
+    per_row_loss = nn.functional.cross_entropy(
+        logits,
+        labels_oxy,
+        weight=class_weight,
+        reduction="none",
+    )
     loss_oxy = (per_row_loss * mask_oxy).sum() / mask_oxy.sum().clamp(min=1.0)
     total = total + target_weights["oxy"] * loss_oxy
     per_target_loss["oxy"] = float(loss_oxy.detach().cpu())
