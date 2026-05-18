@@ -36,7 +36,7 @@ feature paths** that XGBoost then combines (6,312 features total per genome):
    for temperature, Na⁺/H⁺ antiporters for pH/salt, etc.) with frozen ESM-2 t30, then
    mean-pool per category. 8 markers × 641 dims = 5,128 cols.
 
-Current 5-fold GroupKFold CV (full feature stack, commit pending):
+Current 5-fold GroupKFold CV (full feature stack):
 
 | Target | Metric | v3 (pre-PTPE) | v4 (+PTPE) | Δ |
 |---|---|---|---|---|
@@ -46,8 +46,12 @@ Current 5-fold GroupKFold CV (full feature stack, commit pending):
 | salt_tolerance_pct | MAE % | 1.94 | **1.92** | −1.1% |
 
 PTPE adds modest, mixed lift on the regressors and slightly hurts oxygen F1. Frozen
-mean-pool may not be unlocking the PLM signal — next experiments are LoRA fine-tuning
-ESM-2 end-to-end and learned attention pooling per marker category.
+mean-pool may not be unlocking the PLM signal. A first fold-0 LoRA fine-tune of
+ESM-2 t12 is now complete and is strongest for oxygen classification: the best
+all-task LoRA checkpoint reaches `0.9448` oxygen macro F1 on fold 0, versus `0.4020`
+for the current tabular five-fold mean. Oxygen-only and anaerobe-weighted variants
+did not beat the original all-task checkpoint. See [docs/lora_results.md](docs/lora_results.md) for the
+checkpoint release, metrics, and load instructions.
 
 ## Approach
 
@@ -73,7 +77,7 @@ NCBI Datasets v2 (genomes) ─────┘
                                  phenotype heads + medium recommender
 ```
 
-The five feature paths are **independent**: each describes the same genome a different
+The six feature paths are **independent**: each describes the same genome a different
 way, and XGBoost decides which to weight per phenotype. The marker-importance diagnostic
 shows oxygen leans hard on Pfam HMMs (COX1, hydrogenases), T_opt leans on composition
 (IVYWREL fraction), salt uses both, and KEGG modules are expected to dominate the
@@ -214,10 +218,12 @@ headline result and `artifacts/eval_report.md` for the full eval.
 - Isolation metadata enrichment from raw BacDive JSON (v3)
 - Modal-based GPU embedding extraction (t30 complete, 22,300 genomes)
 - **Phenotype-targeted ESM-2 embeddings (PTPE)** — HMM-gated mean-pool per category (v4)
+- **Fold-0 LoRA fine-tune of ESM-2 t12** — best result is the all-task checkpoint,
+  stored in the `lora-fold0-20260518` GitHub Release
 
 🔬 Open:
-- **LoRA fine-tune ESM-2** end-to-end on the phenotype heads (frozen mean-pool only
-  gave 1–2% lift; fine-tuning may unlock more PLM signal)
+- **Run LoRA across folds 1-4** if publication-grade validation is needed; fold 0
+  is promising for oxygen, but it is still only one group fold
 - **Attention-pooled** per-category genome encoder instead of mean-pool (most novel
   methodological direction)
 - LPSN/GTDB family proper join (for tighter GroupKFold)
