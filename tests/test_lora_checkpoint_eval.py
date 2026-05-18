@@ -45,9 +45,27 @@ def test_oxygen_diagnostics_reports_confusion_and_per_class_metrics() -> None:
     assert out["per_class"]["aerobe"]["recall"] == 0.5
     assert out["per_class"]["anaerobe"]["precision"] == pytest.approx(2 / 3)
     assert out["per_class"]["microaerobe"]["f1"] == 0.0
+    assert out["macro_f1"] == pytest.approx((2 / 3 + 0.8 + 2 / 3 + 0.0) / 4)
+    assert out["macro_f1_all_classes"] == pytest.approx(out["macro_f1"])
     assert out["wrong_predictions"][0]["confidence"] == 0.7
     assert out["wrong_predictions"][0]["true"] == "aerobe"
     assert out["wrong_predictions"][0]["pred"] == "anaerobe"
+
+
+def test_macro_f1_ignores_zero_support_classes() -> None:
+    mod = _load_module()
+    classes = ["aerobe", "anaerobe", "facultative_anaerobe", "microaerobe"]
+    labels = np.array([0, 1])
+    probs = np.array([
+        [0.90, 0.10, 0.00, 0.00],
+        [0.20, 0.80, 0.00, 0.00],
+    ])
+    rows = [{"bacdive_id": i, "genome_accession": f"G{i}"} for i in range(len(labels))]
+
+    out = mod.compute_oxygen_diagnostics(probs, labels, rows, classes)
+
+    assert out["macro_f1"] == 1.0
+    assert out["macro_f1_all_classes"] == 0.5
 
 
 def test_render_markdown_includes_key_sections() -> None:
@@ -57,6 +75,7 @@ def test_render_markdown_includes_key_sections() -> None:
         "n": 2,
         "accuracy": 0.5,
         "macro_f1": 0.333333333,
+        "macro_f1_all_classes": 0.333333333,
         "confusion_matrix": [[1, 0], [1, 0]],
         "classes": ["aerobe", "anaerobe"],
         "per_class": {

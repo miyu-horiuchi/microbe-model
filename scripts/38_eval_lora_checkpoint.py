@@ -53,6 +53,7 @@ def compute_oxygen_diagnostics(
 
     per_class: dict[str, dict[str, float | int]] = {}
     f1_values: list[float] = []
+    supported_f1_values: list[float] = []
     for idx, name in enumerate(classes):
         tp = int(confusion[idx, idx])
         support = int(confusion[idx, :].sum())
@@ -61,6 +62,8 @@ def compute_oxygen_diagnostics(
         recall = tp / support if support else 0.0
         f1 = 2 * precision * recall / (precision + recall) if precision + recall else 0.0
         f1_values.append(f1)
+        if support:
+            supported_f1_values.append(f1)
         per_class[name] = {
             "precision": _round_float(precision),
             "recall": _round_float(recall),
@@ -95,7 +98,10 @@ def compute_oxygen_diagnostics(
         "n": n,
         "classes": classes,
         "accuracy": _round_float(accuracy),
-        "macro_f1": _round_float(float(np.mean(f1_values)) if f1_values else 0.0),
+        "macro_f1": _round_float(
+            float(np.mean(supported_f1_values)) if supported_f1_values else 0.0
+        ),
+        "macro_f1_all_classes": _round_float(float(np.mean(f1_values)) if f1_values else 0.0),
         "confusion_matrix": confusion.tolist(),
         "per_class": per_class,
         "wrong_predictions": wrong_predictions[:top_n_errors],
@@ -113,7 +119,8 @@ def render_markdown(diagnostics: dict[str, Any]) -> str:
         "",
         f"- Labeled validation rows: `{diagnostics['n']}`",
         f"- Accuracy: `{diagnostics['accuracy']:.4f}`",
-        f"- Macro F1: `{diagnostics['macro_f1']:.4f}`",
+        f"- Macro F1 (supported classes): `{diagnostics['macro_f1']:.4f}`",
+        f"- Macro F1 (all configured classes): `{diagnostics['macro_f1_all_classes']:.4f}`",
         "",
         "## Per-Class Metrics",
         "",
@@ -186,6 +193,7 @@ def _evaluate_checkpoint(args: argparse.Namespace) -> dict[str, Any]:
 
     rows = _build_dataset(Path(args.sequences), Path(args.phenotypes), Path(args.catalog))
     _, val_rows = _group_kfold_split(rows, n_splits=5, fold=fold)
+    val_rows = [row for row in val_rows if row["label_mask"].get("oxy")]
 
     model = PhenoLoRAModel(model_cfg).to(device)
     model.load_state_dict(checkpoint["state_dict"], strict=False)
