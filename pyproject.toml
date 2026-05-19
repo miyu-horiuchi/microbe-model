@@ -28,6 +28,7 @@ embeddings = [
     "torch>=2.2",
     "transformers>=4.40",
     "accelerate>=0.30",
+    "peft>=0.10",
 ]
 ui = [
     "streamlit>=1.30",

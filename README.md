@@ -52,6 +52,8 @@ all-task LoRA checkpoint reaches `0.9448` oxygen macro F1 on fold 0, versus `0.4
 for the current tabular five-fold mean. Oxygen-only and anaerobe-weighted variants
 did not beat the original all-task checkpoint. See [docs/lora_results.md](docs/lora_results.md) for the
 checkpoint release, metrics, and load instructions.
+For practical prediction, use the hybrid predictor in [docs/hybrid_predictor.md](docs/hybrid_predictor.md):
+tabular XGBoost heads for temperature/pH/salt plus LoRA for oxygen.
 
 ## Approach
 
