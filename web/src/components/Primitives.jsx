@@ -65,3 +65,29 @@ export function MonoTag({ children, color = THEME.accent }) {
     }}>{children}</span>
   );
 }
+
+export function SourceBadge({ source = 'tabular', compact = false }) {
+  const normalized = String(source || 'tabular').toLowerCase();
+  const isLora = normalized === 'lora';
+  const color = isLora ? O2_COLOR : THEME.inkFaint;
+  return (
+    <span style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      width: 'fit-content',
+      fontFamily: THEME.mono,
+      fontSize: compact ? 9 : 10,
+      fontWeight: 500,
+      letterSpacing: '0.04em',
+      textTransform: 'uppercase',
+      padding: compact ? '1px 4px' : '2px 6px',
+      border: `1px solid ${color}`,
+      color,
+      borderRadius: 2,
+      whiteSpace: 'nowrap',
+      lineHeight: 1.2,
+    }}>
+      {isLora ? 'LoRA' : 'tabular'}
+    </span>
+  );
+}

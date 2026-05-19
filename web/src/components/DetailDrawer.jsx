@@ -1,6 +1,6 @@
 import React from 'react';
 import { THEME, tempColor, pHColor, saltColor } from '../theme.js';
-import { MediaConfBar, OxygenConfArc, IntervalBar, MonoTag } from './Primitives.jsx';
+import { MediaConfBar, OxygenConfArc, IntervalBar, MonoTag, SourceBadge } from './Primitives.jsx';
 
 export default function DetailDrawer({ microbe, onClose }) {
   if (!microbe) return null;
@@ -34,7 +34,10 @@ export default function DetailDrawer({ microbe, onClose }) {
           <PhenoCell label="pH" value={microbe.pH} color={pHColor(microbe.pH)} scaleMin={2} scaleMax={11} />
           <PhenoCell label="salt" value={microbe.salt} unit="%" color={saltColor(microbe.salt)} scaleMin={0} scaleMax={25} />
           <div style={{ border: `1px solid ${THEME.rule}`, padding: '10px 12px' }}>
-            <div style={{ font: `400 10px ${THEME.mono}`, color: THEME.inkFaint, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>Oxygen</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+              <span style={{ font: `400 10px ${THEME.mono}`, color: THEME.inkFaint, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Oxygen</span>
+              <SourceBadge source={microbe.O2_source} compact />
+            </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <OxygenConfArc value={microbe.O2_conf} size={36} />
               <div style={{ font: `500 14px ${THEME.font}`, color: THEME.ink }}>{microbe.O2}</div>

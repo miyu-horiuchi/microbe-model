@@ -67,6 +67,57 @@ def _phylum(tax: str | None) -> str:
     return "—"
 
 
+def _load_catalog_frame() -> tuple[pd.DataFrame, str]:
+    """Load the deploy catalog and overlay hybrid phenotype predictions if available."""
+    base = pd.read_parquet(config.ARTIFACTS / "uncultured_predictions.parquet")
+    if "pred_oxygen_requirement_source" not in base.columns:
+        base["pred_oxygen_requirement_source"] = "tabular"
+
+    hybrid_path = config.ARTIFACTS / "hybrid_predictions.parquet"
+    if not hybrid_path.exists():
+        return base, "tabular"
+
+    hybrid = pd.read_parquet(hybrid_path)
+    if "genome_accession" not in hybrid.columns:
+        print(f"  ! ignoring {hybrid_path}: missing genome_accession")
+        return base, "tabular"
+
+    pred_cols = [c for c in hybrid.columns if c.startswith("pred_")]
+    if not pred_cols:
+        print(f"  ! ignoring {hybrid_path}: no pred_* columns")
+        return base, "tabular"
+
+    hybrid = hybrid[["genome_accession", *pred_cols]].drop_duplicates("genome_accession")
+    merged = base.merge(hybrid, on="genome_accession", how="left", suffixes=("", "_hybrid"))
+
+    for col in pred_cols:
+        hcol = f"{col}_hybrid" if col in base.columns else col
+        if hcol not in merged.columns:
+            continue
+        if col in base.columns and hcol != col:
+            merged[col] = merged[hcol].combine_first(merged[col])
+            merged = merged.drop(columns=[hcol])
+
+    if "pred_oxygen_requirement_source" not in merged.columns:
+        merged["pred_oxygen_requirement_source"] = "tabular"
+    merged["pred_oxygen_requirement_source"] = merged["pred_oxygen_requirement_source"].fillna("tabular")
+    return merged, "hybrid"
+
+
+def _tag_prediction_sources(phenotypes: dict[str, Any]) -> dict[str, Any]:
+    """Expose model source metadata to the UI without changing prediction values."""
+    for key, source in {
+        "optimal_temperature_c": "tabular",
+        "optimal_ph": "tabular",
+        "oxygen_requirement": "tabular",
+        "salt_tolerance_pct": "tabular",
+    }.items():
+        item = phenotypes.get(key)
+        if isinstance(item, dict):
+            item.setdefault("source", source)
+    return phenotypes
+
+
 @app.on_event("startup")
 def _load_resources() -> None:
     print("Loading recommender models...")
@@ -79,12 +130,13 @@ def _load_resources() -> None:
         zip(media_meta["medium_id"].astype(str), media_meta["name"], strict=True)
     )
 
-    unc = pd.read_parquet(config.ARTIFACTS / "uncultured_predictions.parquet")
+    unc, catalog_source = _load_catalog_frame()
     unc["phylum"] = unc["gtdb_taxonomy"].map(_phylum)
     unc["truly_uncultured"] = (
         unc["ncbi_organism_name"].fillna("").str.lower().str.startswith("uncultured")
     )
     _state["catalog"] = unc
+    _state["catalog_source"] = catalog_source
     print(f"  → {len(unc):,} catalog rows ({int(unc['truly_uncultured'].sum()):,} truly uncultured)")
 
 
@@ -106,6 +158,7 @@ class CatalogRow(BaseModel):
     pH: float
     O2: str
     O2_conf: float
+    O2_source: str = "tabular"
     salt: float
     top_medium_id: str
     top_medium_name: str
@@ -127,6 +180,7 @@ def health():
         "ok": True,
         "models_loaded": len(_state.get("models", {})),
         "catalog_rows": len(_state.get("catalog", [])),
+        "catalog_source": _state.get("catalog_source", "tabular"),
     }
 
 
@@ -162,6 +216,7 @@ def catalog():
             "pH": _safe_float(m["pred_optimal_ph"], 2),
             "O2": _safe_str(m["pred_oxygen_requirement"], "—"),
             "O2_conf": _safe_float(m.get("pred_oxygen_requirement_confidence"), 3, 0.0),
+            "O2_source": _safe_str(m.get("pred_oxygen_requirement_source"), "tabular"),
             "salt": _safe_float(m["pred_salt_tolerance_pct"], 2),
             "top_medium_id": _safe_str(m["top1_medium_id"], "—"),
             "top_medium_name": _safe_str(m["top1_medium_name"], "—"),
@@ -173,7 +228,7 @@ def catalog():
             "top3_medium_name": _safe_str(m.get("top3_medium_name")),
             "top3_confidence": _safe_float(m.get("top3_confidence"), 4) if pd.notna(m.get("top3_confidence")) else None,
         })
-    return {"count": len(rows), "rows": rows}
+    return {"count": len(rows), "source": _state.get("catalog_source", "tabular"), "rows": rows}
 
 
 @app.get("/api/ncbi-search")
@@ -235,7 +290,7 @@ def predict(req: PredictRequest):
             feats, accession, n_contigs = _load_genome_features(target)
 
         feats_series = pd.Series(feats)
-        phenotypes = _predict_phenotypes(feats_series)
+        phenotypes = _tag_prediction_sources(_predict_phenotypes(feats_series))
 
         models = _state["models"]
         feature_cols = _state["feature_cols"]

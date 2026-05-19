@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { THEME, tempColor, pHColor, saltColor } from '../theme.js';
-import { MediaConfBar, OxygenConfArc, IntervalBar, MonoTag } from './Primitives.jsx';
+import { MediaConfBar, OxygenConfArc, IntervalBar, MonoTag, SourceBadge } from './Primitives.jsx';
 
 function ModeStrip({ mode, setMode }) {
   const focused = mode === 'focused';
@@ -98,7 +98,10 @@ function FeaturedCard({ m, onSelect }) {
         <PhenoMicro label="pH" value={m.pH.toFixed(1)} color={pHColor(m.pH)} />
         <PhenoMicro label="salt" value={m.salt.toFixed(1)} unit="%" color={saltColor(m.salt)} />
         <div>
-          <div style={{ font: `400 10px ${THEME.mono}`, color: THEME.inkFaint, letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: 4 }}>O₂</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+            <span style={{ font: `400 10px ${THEME.mono}`, color: THEME.inkFaint, letterSpacing: '0.05em', textTransform: 'uppercase' }}>O₂</span>
+            <SourceBadge source={m.O2_source} compact />
+          </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <OxygenConfArc value={m.O2_conf} size={26} />
             <div style={{ font: `500 12px ${THEME.font}`, color: THEME.ink, lineHeight: 1.2 }}>{m.O2}</div>
@@ -139,6 +142,7 @@ function TableRow({ m, onSelect, isLast }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <OxygenConfArc value={m.O2_conf} size={20} />
           <span style={{ font: `400 11.5px ${THEME.font}`, color: THEME.ink }}>{m.O2}</span>
+          <SourceBadge source={m.O2_source} compact />
         </div>
       </td>
       <td style={{ padding: '10px 12px', font: `500 12px ${THEME.serif}`, color: saltColor(m.salt), fontVariantNumeric: 'tabular-nums' }}>{m.salt.toFixed(1)}%</td>
