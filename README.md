@@ -19,7 +19,7 @@ in pure culture.
 
 ## Status
 
-v4 — multi-source feature fusion with phenotype-targeted protein embeddings.
+v5 — hybrid predictor on top of the v4 multi-source feature stack.
 46,029 BacDive strains over 22,300 unique genomes, each described by **six parallel
 feature paths** that XGBoost then combines (6,312 features total per genome):
 
@@ -36,7 +36,7 @@ feature paths** that XGBoost then combines (6,312 features total per genome):
    for temperature, Na⁺/H⁺ antiporters for pH/salt, etc.) with frozen ESM-2 t30, then
    mean-pool per category. 8 markers × 641 dims = 5,128 cols.
 
-Current 5-fold GroupKFold CV (full feature stack):
+Current tabular 5-fold GroupKFold CV (full feature stack):
 
 | Target | Metric | v3 (pre-PTPE) | v4 (+PTPE) | Δ |
 |---|---|---|---|---|
@@ -53,7 +53,8 @@ for the current tabular five-fold mean. Oxygen-only and anaerobe-weighted varian
 did not beat the original all-task checkpoint. See [docs/lora_results.md](docs/lora_results.md) for the
 checkpoint release, metrics, and load instructions.
 For practical prediction, use the hybrid predictor in [docs/hybrid_predictor.md](docs/hybrid_predictor.md):
-tabular XGBoost heads for temperature/pH/salt plus LoRA for oxygen.
+tabular XGBoost heads for temperature/pH/salt plus LoRA for oxygen. The deployed UI
+surfaces whether each oxygen value came from `LoRA` or the `tabular` fallback.
 
 ## Approach
 
@@ -76,7 +77,7 @@ NCBI Datasets v2 (genomes) ─────┘
                                  (5-fold GroupKFold by family)
                                           │
                                           ▼
-                                 phenotype heads + medium recommender
+                      phenotype heads + medium recommender + LoRA oxygen head
 ```
 
 The six feature paths are **independent**: each describes the same genome a different
@@ -134,6 +135,14 @@ uv run python scripts/_materialize_embeddings.py             # JSONL → parquet
 # Embed only proteins matching curated phenotype HMMs, pool per category.
 uv run modal run scripts/modal_per_marker_embed.py --model facebook/esm2_t30_150M_UR50D
 uv run python scripts/_materialize_per_marker_embeddings.py  # JSONL → parquet
+
+# === Hybrid predictor ===
+# Tabular XGBoost for temperature/pH/salt, fold-0 LoRA for oxygen.
+PYTHONPATH=src uv run --python 3.11 --extra dev --extra embeddings python scripts/39_predict_hybrid.py \
+    --features data/training_table.parquet \
+    --marker-sequences data/marker_sequences.jsonl \
+    --device mps \
+    --output artifacts/hybrid_predictions.parquet
 ```
 
 For overnight runs, `scripts/run_train_and_eval.sh` chains the core pipeline. The HMM,
@@ -175,6 +184,19 @@ KEGG, and embedding paths are independent — once their per-genome parquets exi
   host species; outputs `data/isolation_metadata.parquet` with one-hot encodings.
 - **`modal_embed.py`** — Modal app for ESM-2 t30 (or t33) extraction on A10G GPUs.
 
+### UI and API
+- **`api/main.py`** — FastAPI backend for the Hugging Face Space. It serves the React
+  build, recommender models, catalog API, NCBI lookup, and on-demand genome prediction.
+- **`web/`** — React/Vite frontend used by the Docker Space at
+  <https://huggingface.co/spaces/miyuiu/microbe-model>.
+- **Hybrid catalog behavior** — `/api/catalog` always loads
+  `artifacts/uncultured_predictions.parquet`; if `artifacts/hybrid_predictions.parquet`
+  exists, the API overlays matching `pred_*` columns by `genome_accession`.
+  Oxygen rows include `O2_source` so the UI can show `LoRA` vs `tabular`.
+- **Live `/api/predict` behavior** — on-demand predictions currently use the deployed
+  tabular phenotype heads and return per-phenotype `source` metadata. LoRA-backed
+  oxygen is used for precomputed hybrid catalog rows when the hybrid artifact is present.
+
 ## Layout
 
 ```
@@ -192,7 +214,9 @@ src/microbe_model/
     baseline.py        # multi-task XGBoost + GroupKFold
     media_recommender.py  # per-medium binary classifiers
   eval.py              # markdown report renderer
-scripts/               # numbered pipeline entry points (01–30 + modal_*.py)
+scripts/               # numbered pipeline entry points (01–39 + modal_*.py)
+api/                   # FastAPI backend for the Docker/Hugging Face Space
+web/                   # React/Vite frontend for the deployed UI
 tests/                 # unit + integration tests
 data/                  # (gitignored) parquet tables, JSONL features, BacDive cache
 artifacts/             # eval report, training results, logs
@@ -201,8 +225,11 @@ models/                # trained phenotype heads + per-medium recommender models
 
 ## What this is *not* yet
 
-- Not a foundation model. No transformer. No genome language model.
-- Not a platform. There is no upload UI or active-learning loop.
+- Not an end-to-end foundation model. LoRA only fine-tunes an ESM-2 marker-protein
+  encoder for phenotype prediction; the system is still mostly tabular XGBoost plus
+  a targeted oxygen LoRA head.
+- Not a full active-learning platform. The UI can score an accession/name/FASTA, but it
+  does not yet store experiments, close the lab feedback loop, or retrain from new assays.
 - Not validated against truly out-of-distribution organisms (BacDive is survivorship-biased
   to organisms that have been cultured at least once).
 
