@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { THEME } from '../theme.js';
-import { MediaConfBar, OxygenConfArc, IntervalBar, MonoTag } from './Primitives.jsx';
+import { MediaConfBar, OxygenConfArc, IntervalBar, MonoTag, SourceBadge } from './Primitives.jsx';
 import { tempColor, pHColor, saltColor } from '../theme.js';
 
 const QUICK_TRY = [
@@ -198,7 +198,10 @@ function PredictResultBanner({ result, onClear }) {
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <OxygenConfArc value={O2.confidence || 0} size={32} />
               <div>
-                <div style={{ fontFamily: THEME.mono, fontSize: 9, color: THEME.inkFaint, textTransform: 'uppercase', letterSpacing: '0.05em' }}>O₂</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 2 }}>
+                  <span style={{ fontFamily: THEME.mono, fontSize: 9, color: THEME.inkFaint, textTransform: 'uppercase', letterSpacing: '0.05em' }}>O₂</span>
+                  <SourceBadge source={O2.source} compact />
+                </div>
                 <div style={{ fontFamily: THEME.font, fontSize: 12, color: THEME.ink }}>{O2.prediction}</div>
               </div>
             </div>

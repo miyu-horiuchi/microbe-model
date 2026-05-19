@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { THEME, tempColor, pHColor, saltColor } from '../theme.js';
-import { OxygenConfArc, IntervalBar, MediaConfBar, MonoTag } from './Primitives.jsx';
+import { OxygenConfArc, IntervalBar, MediaConfBar, MonoTag, SourceBadge } from './Primitives.jsx';
 
 const PRESETS = [
   { id: 'ecoli', name: 'Escherichia coli K-12 MG1655', accession: 'GCF_000005845.2',
@@ -124,9 +124,12 @@ function Comparison({ preset, result }) {
           <div style={{ border: `1px solid ${THEME.rule}`, padding: '14px 16px', background: THEME.paper }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 }}>
               <span style={{ font: `500 11px ${THEME.mono}`, color: THEME.inkSoft, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Oxygen requirement</span>
-              <span style={{ font: `500 11px ${THEME.mono}`, color: O2.prediction === pub.O2 ? THEME.pos : THEME.warn }}>
-                {O2.prediction === pub.O2 ? '✓ match' : '△ mismatch'}
-              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <SourceBadge source={O2.source} compact />
+                <span style={{ font: `500 11px ${THEME.mono}`, color: O2.prediction === pub.O2 ? THEME.pos : THEME.warn }}>
+                  {O2.prediction === pub.O2 ? '✓ match' : '△ mismatch'}
+                </span>
+              </div>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18, alignItems: 'center' }}>
               <div>
