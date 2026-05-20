@@ -64,6 +64,13 @@ for global medium popularity and `37.2%` for the taxonomic-popularity baseline.
 Median per-medium ROC-AUC is `0.910`; median PR-AUC is `0.183`, reflecting sparse,
 imbalanced medium labels.
 
+External-tool benchmarking is prepared in
+[artifacts/external_benchmark_status.md](artifacts/external_benchmark_status.md).
+The manifest pins the same family-heldout strains for GenomeSPOT condition-trait
+comparison and CarveMe/gapseq-style medium-feasibility comparison, but the local
+machine still needs the full held-out genome FASTA set and the external tool
+binaries/databases before those baselines can be run.
+
 ## Approach
 
 ```
@@ -165,6 +172,14 @@ PYTHONPATH=src uv run --python 3.11 --extra dev --extra embeddings python script
     --resume-chunks \
     --progress-every 25 \
     --output artifacts/hybrid_predictions.parquet
+
+# === External benchmark manifest ===
+# Pins the same held-out strains/folds for GenomeSPOT, CarveMe, and gapseq runs.
+PYTHONPATH=src uv run --python 3.11 python scripts/42_prepare_external_benchmarks.py
+
+# Optional smoke download of 10 missing genome FASTAs for external-tool setup checks.
+PYTHONPATH=src uv run --python 3.11 python scripts/42_prepare_external_benchmarks.py \
+    --download-fastas 10
 ```
 
 For overnight runs, `scripts/run_train_and_eval.sh` chains the core pipeline. The HMM,
@@ -236,7 +251,7 @@ src/microbe_model/
     baseline.py        # multi-task XGBoost + GroupKFold
     media_recommender.py  # per-medium binary classifiers
   eval.py              # markdown report renderer
-scripts/               # numbered pipeline entry points (01–39 + modal_*.py)
+scripts/               # numbered pipeline entry points (01–42 + modal_*.py)
 api/                   # FastAPI backend for the Docker/Hugging Face Space
 web/                   # React/Vite frontend for the deployed UI
 tests/                 # unit + integration tests
@@ -275,6 +290,9 @@ headline result and `artifacts/eval_report.md` for the full eval.
 🔬 Open:
 - **Run LoRA across folds 1-4** if publication-grade validation is needed; fold 0
   is promising for oxygen, but it is still only one group fold
+- **Run external baselines** on the prepared held-out manifest once FASTAs and
+  third-party databases are local: GenomeSPOT for condition traits, and
+  CarveMe/gapseq-style metabolic reconstructions for medium feasibility.
 - **Attention-pooled** per-category genome encoder instead of mean-pool (most novel
   methodological direction)
 - LPSN/GTDB family proper join (for tighter GroupKFold)

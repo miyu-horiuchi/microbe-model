@@ -1,0 +1,36 @@
+{
+  "split_mode": "family",
+  "n_splits": 5,
+  "seed": 7,
+  "elapsed_s": 4.428351879119873,
+  "manifest_parquet": "artifacts/external_benchmark_manifest.parquet",
+  "manifest_csv": "artifacts/external_benchmark_manifest.csv",
+  "rows": 25728,
+  "media_labels": 40,
+  "tools": {
+    "GenomeSPOT": {
+      "command": null,
+      "path": null
+    },
+    "CarveMe": {
+      "command": null,
+      "path": null
+    },
+    "gapseq": {
+      "command": null,
+      "path": null
+    }
+  },
+  "fasta_coverage": {
+    "fasta_dir": "data/external_benchmark_fastas",
+    "unique_accessions": 16154,
+    "present_fastas": 0,
+    "missing_fastas": 16154,
+    "coverage_pct": 0.0
+  },
+  "download": {
+    "attempted": 0,
+    "downloaded": 0,
+    "failed": 0
+  }
+}
