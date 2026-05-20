@@ -70,6 +70,9 @@ The manifest pins the same family-heldout strains for GenomeSPOT condition-trait
 comparison and CarveMe/gapseq-style medium-feasibility comparison, but the local
 machine still needs the full held-out genome FASTA set and the external tool
 binaries/databases before those baselines can be run.
+Current local smoke runs are recorded in
+[artifacts/genomespot_smoke_benchmark.md](artifacts/genomespot_smoke_benchmark.md)
+and [artifacts/carveme_smoke_status.md](artifacts/carveme_smoke_status.md).
 
 ## Approach
 
@@ -180,6 +183,14 @@ PYTHONPATH=src uv run --python 3.11 python scripts/42_prepare_external_benchmark
 # Optional smoke download of 10 missing genome FASTAs for external-tool setup checks.
 PYTHONPATH=src uv run --python 3.11 python scripts/42_prepare_external_benchmarks.py \
     --download-fastas 10
+
+# Run a small GenomeSPOT smoke benchmark on exact held-out rows with all condition labels.
+PYTHONPATH=src uv run --python 3.11 python scripts/43_run_genomespot_benchmark.py \
+    --limit 5 \
+    --require-label temperature \
+    --require-label ph \
+    --require-label salt \
+    --require-label oxygen
 ```
 
 For overnight runs, `scripts/run_train_and_eval.sh` chains the core pipeline. The HMM,

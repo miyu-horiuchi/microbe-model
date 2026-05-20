@@ -158,6 +158,14 @@ def detect_tools() -> dict[str, dict[str, str | None]]:
                 found_name = candidate
                 found_path = path
                 break
+        if label == "GenomeSPOT" and found_path is None:
+            local_source = config.DATA / "external_tools" / "GenomeSPOT-main"
+            if (local_source / "genome_spot" / "genome_spot.py").exists() and (local_source / "models").exists():
+                found_name = "uv run python -m genome_spot.genome_spot"
+                found_path = str(local_source.relative_to(config.ROOT))
+        if label == "CarveMe" and found_path is None and shutil.which("diamond"):
+            found_name = "uv run --with carveme carve"
+            found_path = shutil.which("diamond")
         out[label] = {"command": found_name, "path": found_path}
     return out
 

@@ -25,13 +25,13 @@ Label coverage:
 ## Local Requirements
 
 - FASTA directory: `data/external_benchmark_fastas`
-- FASTAs present: 0 / 16,154 (0.00%)
+- FASTAs present: 8 / 16,154 (0.05%)
 - FASTA download smoke run: {"attempted": 0, "downloaded": 0, "failed": 0}
 
 | Tool | Local command | Status |
 |---|---|---|
-| GenomeSPOT | `` | missing |
-| CarveMe | `` | missing |
+| GenomeSPOT | `uv run python -m genome_spot.genome_spot` | available |
+| CarveMe | `uv run --with carveme carve` | available |
 | gapseq | `` | missing |
 
 ## Verdict

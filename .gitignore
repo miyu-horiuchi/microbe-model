@@ -69,6 +69,10 @@ artifacts/lora/*
 !artifacts/external_benchmark_manifest.parquet
 !artifacts/external_benchmark_status.json
 !artifacts/external_benchmark_status.md
+!artifacts/genomespot_smoke_benchmark.json
+!artifacts/genomespot_smoke_benchmark.md
+!artifacts/carveme_smoke_status.json
+!artifacts/carveme_smoke_status.md
 
 # Trained recommender models — needed for scripts/recommend.py to work after clone
 !models/

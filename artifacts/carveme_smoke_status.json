@@ -1,0 +1,13 @@
+{
+  "status": "reconstruction_smoke_ok",
+  "input_protein_fasta": "data/external_benchmark_fastas/GCA_000820045.faa.gz",
+  "output_model": "artifacts/carveme_smoke/GCA_000820045.xml",
+  "output_model_size_mb": 9.4,
+  "installed_local_dependency": "diamond 2.2.0 via Homebrew",
+  "command": "uv run --python 3.11 --isolated --with carveme carve data/external_benchmark_fastas/GCA_000820045.faa.gz -o artifacts/carveme_smoke/GCA_000820045.xml --solver scip",
+  "medium_feasibility_scored": false,
+  "reason_medium_not_scored": "CarveMe produced an SBML reconstruction, but comparing it to MediaDive media requires a recipe-to-metabolite/media mapping and a feasible-growth scoring command for each candidate medium.",
+  "gapseq_status": "not_installable_on_this_local_conda_platform",
+  "gapseq_check": "conda search -c conda-forge -c bioconda gapseq --info",
+  "gapseq_result": "PackagesNotFoundError for local osx channels; full gapseq also requires Bacteria/Archaea reference sequence database downloads."
+}

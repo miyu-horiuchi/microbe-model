@@ -2,19 +2,19 @@
   "split_mode": "family",
   "n_splits": 5,
   "seed": 7,
-  "elapsed_s": 4.428351879119873,
+  "elapsed_s": 4.729962110519409,
   "manifest_parquet": "artifacts/external_benchmark_manifest.parquet",
   "manifest_csv": "artifacts/external_benchmark_manifest.csv",
   "rows": 25728,
   "media_labels": 40,
   "tools": {
     "GenomeSPOT": {
-      "command": null,
-      "path": null
+      "command": "uv run python -m genome_spot.genome_spot",
+      "path": "data/external_tools/GenomeSPOT-main"
     },
     "CarveMe": {
-      "command": null,
-      "path": null
+      "command": "uv run --with carveme carve",
+      "path": "/opt/homebrew/bin/diamond"
     },
     "gapseq": {
       "command": null,
@@ -24,9 +24,9 @@
   "fasta_coverage": {
     "fasta_dir": "data/external_benchmark_fastas",
     "unique_accessions": 16154,
-    "present_fastas": 0,
-    "missing_fastas": 16154,
-    "coverage_pct": 0.0
+    "present_fastas": 8,
+    "missing_fastas": 16146,
+    "coverage_pct": 0.04952333787297264
   },
   "download": {
     "attempted": 0,
