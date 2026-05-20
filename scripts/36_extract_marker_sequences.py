@@ -24,6 +24,13 @@ of wall time for ~$2-5 of Modal compute.
 Usage:
     modal run scripts/36_extract_marker_sequences.py --limit 50
     modal run scripts/36_extract_marker_sequences.py --max-per-cat 16
+    modal run scripts/36_extract_marker_sequences.py \
+      --input-path data/gtdb_candidates.parquet \
+      --id-col "" \
+      --accession-col genome_accession \
+      --fetch-accession-col ncbi_assembly_accession_versioned \
+      --require-label 0 \
+      --out-path data/uncultured_marker_sequences.jsonl
 """
 from __future__ import annotations
 
@@ -211,9 +218,14 @@ class MarkerSeqExtractor:
         return result
 
     @modal.method()
-    def extract_genome(self, bacdive_id: int, accession: str) -> dict | None:
+    def extract_genome(
+        self,
+        record_id: int,
+        genome_accession: str,
+        fetch_accession: str | None = None,
+    ) -> dict | None:
         try:
-            contigs = _fetch_fasta_bytes(accession, self.ncbi_key)
+            contigs = _fetch_fasta_bytes(fetch_accession or genome_accession, self.ncbi_key)
             if not contigs:
                 return None
             proteins = _predict_proteins(contigs)
@@ -235,48 +247,86 @@ class MarkerSeqExtractor:
                 by_category[cat] = [proteins[i][:MAX_PROTEIN_LEN] for i in kept]
 
             return {
-                "bacdive_id": int(bacdive_id),
-                "genome_accession": accession,
+                "bacdive_id": int(record_id),
+                "genome_accession": genome_accession,
                 "by_category": by_category,
                 "category_counts": {c: len(by_category[c]) for c in CATEGORIES},
             }
         except Exception as exc:
-            print(f"  skip {accession}: {type(exc).__name__}: {exc}", flush=True)
+            print(f"  skip {genome_accession}: {type(exc).__name__}: {exc}", flush=True)
             return None
 
 
 @app.local_entrypoint()
 def main(
     out_path: str = "data/marker_sequences.jsonl",
+    input_path: str = "data/bacdive_phenotypes.parquet",
+    id_col: str = "bacdive_id",
+    accession_col: str = "genome_accession",
+    fetch_accession_col: str = "",
+    require_label: int = 1,
     limit: int = 0,
     max_per_cat: int = 16,
 ):
     """Dispatch genomes to Modal containers; stream sequences to local JSONL."""
     import pandas as pd
 
-    pheno = pd.read_parquet("data/bacdive_phenotypes.parquet")
-    has_genome = pheno["genome_accession"].notna()
-    label_cols = ["optimal_temperature_c", "optimal_ph", "oxygen_requirement", "salt_tolerance_pct"]
-    has_label = pheno[label_cols].notna().any(axis=1)
-    ready = pheno[has_genome & has_label].copy()
-    ready["bacdive_id"] = ready["bacdive_id"].astype(int)
+    source = pd.read_parquet(input_path)
+    if accession_col not in source.columns:
+        raise ValueError(f"{input_path} is missing accession column: {accession_col}")
+
+    ready = source[source[accession_col].notna()].copy()
+    if require_label:
+        label_cols = ["optimal_temperature_c", "optimal_ph", "oxygen_requirement", "salt_tolerance_pct"]
+        present_label_cols = [col for col in label_cols if col in ready.columns]
+        if not present_label_cols:
+            raise ValueError(
+                f"require_label=1 but {input_path} has none of these columns: {label_cols}"
+            )
+        ready = ready[ready[present_label_cols].notna().any(axis=1)].copy()
+
+    if id_col and id_col in ready.columns:
+        ready["_marker_seq_id"] = ready[id_col].astype(int)
+    else:
+        ready = ready.reset_index(drop=True)
+        ready["_marker_seq_id"] = ready.index + 1_000_000_000
+
+    ready["_genome_accession"] = ready[accession_col].astype(str)
+    if fetch_accession_col and fetch_accession_col in ready.columns:
+        ready["_fetch_accession"] = ready[fetch_accession_col].fillna(ready[accession_col]).astype(str)
+    else:
+        ready["_fetch_accession"] = ready["_genome_accession"]
 
     out = Path(out_path)
     out.parent.mkdir(parents=True, exist_ok=True)
     done: set[int] = set()
+    done_accessions: set[str] = set()
     if out.exists():
         with open(out) as fh:
             for line in fh:
                 try:
-                    done.add(int(json.loads(line)["bacdive_id"]))
+                    row = json.loads(line)
+                    done.add(int(row["bacdive_id"]))
+                    if row.get("genome_accession"):
+                        done_accessions.add(str(row["genome_accession"]))
                 except Exception:
                     continue
 
-    pending = ready[~ready["bacdive_id"].isin(done)]
+    pending = ready[
+        ~ready["_marker_seq_id"].isin(done)
+        & ~ready["_genome_accession"].isin(done_accessions)
+    ]
     if limit:
         pending = pending.head(limit)
-    tasks = list(zip(pending["bacdive_id"], pending["genome_accession"].astype(str), strict=True))
+    tasks = list(zip(
+        pending["_marker_seq_id"],
+        pending["_genome_accession"],
+        pending["_fetch_accession"],
+        strict=True,
+    ))
     print(f"Marker-sequence extract: {len(tasks):,} genomes pending ({len(done):,} cached)")
+    print(f"input_path={input_path}")
+    print(f"accession_col={accession_col} fetch_accession_col={fetch_accession_col or accession_col}")
     print(f"max_per_cat={max_per_cat}")
     if not tasks:
         return

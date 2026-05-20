@@ -47,6 +47,7 @@ COPY --chown=user:user src/ ./src/
 COPY --chown=user:user scripts/recommend.py ./scripts/recommend.py
 COPY --chown=user:user models/ ./models/
 COPY --chown=user:user artifacts/uncultured_predictions.parquet ./artifacts/uncultured_predictions.parquet
+COPY --chown=user:user artifacts/hybrid_predictions.parquet ./artifacts/hybrid_predictions.parquet
 COPY --chown=user:user data/media_metadata.parquet ./data/media_metadata.parquet
 COPY --chown=user:user data/media_recipes.parquet ./data/media_recipes.parquet
 COPY --chown=user:user pyproject.toml README.md ./

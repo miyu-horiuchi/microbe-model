@@ -89,3 +89,42 @@ def test_build_hybrid_predictions_orders_core_columns() -> None:
     ]
     assert out.loc[0, "pred_oxygen_requirement"] == "aerobe"
     assert out.loc[0, "pred_oxygen_requirement_prob_aerobe"] == 0.9
+
+
+def test_build_hybrid_predictions_falls_back_to_existing_oxygen() -> None:
+    mod = _load_module()
+    joined = pd.DataFrame([
+        {
+            "bacdive_id": 1,
+            "genome_accession": "G1",
+            "pred_oxygen_requirement": "anaerobe",
+            "pred_oxygen_requirement_confidence": 0.7,
+        },
+    ])
+    tabular = pd.DataFrame([
+        {"pred_optimal_temperature_c": 30.0},
+    ])
+    oxygen = pd.DataFrame(index=joined.index)
+
+    out = mod.build_hybrid_predictions(
+        joined,
+        tabular_predictions=tabular,
+        oxygen_predictions=oxygen,
+    )
+
+    assert out.loc[0, "pred_oxygen_requirement"] == "anaerobe"
+    assert out.loc[0, "pred_oxygen_requirement_confidence"] == 0.7
+    assert out.loc[0, "pred_oxygen_requirement_source"] == "tabular"
+
+
+def test_chunk_output_path_uses_range_and_final_suffix(tmp_path: Path) -> None:
+    mod = _load_module()
+
+    path = mod.chunk_output_path(
+        Path("artifacts/hybrid_predictions.parquet"),
+        tmp_path,
+        250,
+        500,
+    )
+
+    assert path == tmp_path / "hybrid_predictions_000250_000500.parquet"

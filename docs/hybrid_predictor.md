@@ -22,6 +22,28 @@ Use `--device cuda` on a GPU host, `--device mps` on Apple Silicon, or omit the 
 to let PyTorch choose CUDA when available and CPU otherwise. CPU LoRA inference is
 slow because ESM-2 encodes multiple marker proteins per genome.
 
+For larger uncultured-genome batches, use chunked output so progress is durable:
+
+```bash
+PYTHONPATH=src uv run --python 3.11 --extra dev --extra embeddings python scripts/39_predict_hybrid.py \
+  --features artifacts/uncultured_predictions.parquet \
+  --marker-sequences data/uncultured_marker_sequences.jsonl \
+  --join left \
+  --reuse-existing-tabular \
+  --device mps \
+  --batch-size 2 \
+  --chunk-size 250 \
+  --chunk-output-dir artifacts/hybrid_chunks \
+  --resume-chunks \
+  --progress-every 25 \
+  --output artifacts/hybrid_predictions.parquet
+```
+
+`--resume-chunks` skips existing chunk files and combines all expected chunks into
+the final output when the run finishes. `--reuse-existing-tabular` keeps previously
+materialized temperature, pH, salt, and media outputs while replacing oxygen with
+LoRA where marker sequences are available.
+
 ## Inputs
 
 `--features` accepts `.parquet`, `.csv`, `.json`, or `.jsonl` feature rows. Rows must

@@ -128,12 +128,35 @@ def predict_tabular_regressions(
     return out
 
 
+def reuse_existing_tabular_predictions(
+    rows: pd.DataFrame,
+    *,
+    targets: tuple[str, ...] = REGRESSION_TARGETS,
+) -> pd.DataFrame:
+    """Reuse already-materialized tabular prediction columns from an input table."""
+    out = pd.DataFrame(index=rows.index)
+    for target in targets:
+        pred_col = f"pred_{target}"
+        if pred_col not in rows.columns:
+            raise ValueError(
+                f"--reuse-existing-tabular requires input column: {pred_col}"
+            )
+        out[pred_col] = rows[pred_col]
+        for suffix in ("low_80", "high_80"):
+            col = f"pred_{target}_{suffix}"
+            if col in rows.columns:
+                out[col] = rows[col]
+    return out
+
+
 def predict_lora_oxygen(
     rows: pd.DataFrame,
     *,
     checkpoint_path: Path,
     batch_size: int,
     device_name: str | None,
+    progress_every: int | None = None,
+    progress_label: str = "lora",
 ) -> pd.DataFrame:
     """Predict oxygen class probabilities with the LoRA checkpoint."""
     import torch
@@ -170,6 +193,9 @@ def predict_lora_oxygen(
             preds = model(chunk, device=device)
             probs = torch.softmax(preds["oxy"], dim=-1).detach().cpu().float().numpy()
             probs_by_row.extend(probs.tolist())
+            done = min(start + batch_size, len(by_category))
+            if progress_every and (done == len(by_category) or done % progress_every == 0):
+                print(f"[{progress_label}] predicted {done:,}/{len(by_category):,} LoRA rows", flush=True)
 
     probs_df = pd.DataFrame(
         probs_by_row,
@@ -196,6 +222,25 @@ def build_hybrid_predictions(
     out = joined_rows[id_cols].copy()
     out = out.join(tabular_predictions)
     out = out.join(oxygen_predictions)
+    if "pred_oxygen_requirement" in joined_rows.columns:
+        if "pred_oxygen_requirement" not in out.columns:
+            out["pred_oxygen_requirement"] = pd.NA
+        fallback_mask = out["pred_oxygen_requirement"].isna() & joined_rows[
+            "pred_oxygen_requirement"
+        ].notna()
+        if fallback_mask.any():
+            out.loc[fallback_mask, "pred_oxygen_requirement"] = joined_rows.loc[
+                fallback_mask, "pred_oxygen_requirement"
+            ]
+            if "pred_oxygen_requirement_confidence" in joined_rows.columns:
+                if "pred_oxygen_requirement_confidence" not in out.columns:
+                    out["pred_oxygen_requirement_confidence"] = pd.NA
+                out.loc[fallback_mask, "pred_oxygen_requirement_confidence"] = joined_rows.loc[
+                    fallback_mask, "pred_oxygen_requirement_confidence"
+                ]
+            if "pred_oxygen_requirement_source" not in out.columns:
+                out["pred_oxygen_requirement_source"] = pd.NA
+            out.loc[fallback_mask, "pred_oxygen_requirement_source"] = "tabular"
     ordered = [c for c in DEFAULT_OUTPUT_COLUMNS if c in out.columns]
     oxygen_prob_cols = [
         f"pred_oxygen_requirement_prob_{cls}"
@@ -222,6 +267,38 @@ def write_table(df: pd.DataFrame, path: Path) -> None:
         raise ValueError(f"Unsupported output format: {path}")
 
 
+def prediction_output_for_rows(
+    rows: pd.DataFrame,
+    *,
+    args: argparse.Namespace,
+    progress_label: str,
+) -> pd.DataFrame:
+    """Predict all hybrid outputs for one already-joined slice."""
+    if args.reuse_existing_tabular:
+        tabular = reuse_existing_tabular_predictions(rows)
+    else:
+        tabular = predict_tabular_regressions(rows, model_dir=args.phenotype_model_dir)
+    oxygen = predict_lora_oxygen(
+        rows,
+        checkpoint_path=args.checkpoint,
+        batch_size=args.batch_size,
+        device_name=args.device,
+        progress_every=args.progress_every,
+        progress_label=progress_label,
+    )
+    return build_hybrid_predictions(
+        rows,
+        tabular_predictions=tabular,
+        oxygen_predictions=oxygen,
+    )
+
+
+def chunk_output_path(base_output: Path, chunk_dir: Path, start: int, stop: int) -> Path:
+    """Return a stable chunk path using the final output suffix."""
+    suffix = base_output.suffix or ".parquet"
+    return chunk_dir / f"{base_output.stem}_{start:06d}_{stop:06d}{suffix}"
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--features", type=Path, default=config.DATA / "training_table.parquet")
@@ -231,10 +308,48 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output", type=Path, default=config.ARTIFACTS / "hybrid_predictions.parquet")
     parser.add_argument("--join-key", default="genome_accession")
     parser.add_argument("--join", choices=("inner", "left"), default="inner")
+    parser.add_argument(
+        "--reuse-existing-tabular",
+        action="store_true",
+        help="Reuse pred_temperature/pH/salt columns from --features instead of recomputing XGBoost heads.",
+    )
     parser.add_argument("--limit", type=int, default=None)
+    parser.add_argument("--offset", type=int, default=0)
+    parser.add_argument(
+        "--chunk-size",
+        type=int,
+        default=None,
+        help="Write chunk files and combine them into --output when all chunks finish.",
+    )
+    parser.add_argument(
+        "--chunk-output-dir",
+        type=Path,
+        default=config.ARTIFACTS / "hybrid_chunks",
+        help="Directory for per-chunk outputs when --chunk-size is set.",
+    )
+    parser.add_argument(
+        "--resume-chunks",
+        action="store_true",
+        help="Skip existing chunk files and combine all expected chunks at the end.",
+    )
+    parser.add_argument(
+        "--progress-every",
+        type=int,
+        default=100,
+        help="Print LoRA progress after this many sequence rows. Use 0 to disable.",
+    )
     parser.add_argument("--batch-size", type=int, default=2)
     parser.add_argument("--device", default=None, help="Defaults to cuda when available, else cpu.")
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.offset < 0:
+        parser.error("--offset must be >= 0")
+    if args.limit is not None and args.limit < 1:
+        parser.error("--limit must be >= 1")
+    if args.chunk_size is not None and args.chunk_size < 1:
+        parser.error("--chunk-size must be >= 1")
+    if args.progress_every is not None and args.progress_every < 1:
+        args.progress_every = None
+    return args
 
 
 def main() -> None:
@@ -242,6 +357,8 @@ def main() -> None:
     features = read_table(args.features)
     sequences = read_marker_sequences(args.marker_sequences)
     joined = join_features_and_sequences(features, sequences, key=args.join_key, how=args.join)
+    if args.offset:
+        joined = joined.iloc[args.offset :].copy()
     if args.limit is not None:
         joined = joined.head(args.limit).copy()
     if joined.empty:
@@ -255,18 +372,48 @@ def main() -> None:
         print(f"[hybrid] {missing_lora:,}/{len(joined):,} rows have no LoRA marker sequences")
     print(f"[hybrid] predicting {len(joined):,} rows")
 
-    tabular = predict_tabular_regressions(joined, model_dir=args.phenotype_model_dir)
-    oxygen = predict_lora_oxygen(
-        joined,
-        checkpoint_path=args.checkpoint,
-        batch_size=args.batch_size,
-        device_name=args.device,
-    )
-    predictions = build_hybrid_predictions(
-        joined,
-        tabular_predictions=tabular,
-        oxygen_predictions=oxygen,
-    )
+    if args.chunk_size:
+        args.chunk_output_dir.mkdir(parents=True, exist_ok=True)
+        chunk_paths: list[Path] = []
+        for rel_start in range(0, len(joined), args.chunk_size):
+            rel_stop = min(rel_start + args.chunk_size, len(joined))
+            absolute_start = args.offset + rel_start
+            absolute_stop = args.offset + rel_stop
+            chunk_path = chunk_output_path(
+                args.output,
+                args.chunk_output_dir,
+                absolute_start,
+                absolute_stop,
+            )
+            chunk_paths.append(chunk_path)
+            if args.resume_chunks and chunk_path.exists():
+                print(f"[hybrid] skipping existing chunk {chunk_path}", flush=True)
+                continue
+            chunk_rows = joined.iloc[rel_start:rel_stop].copy()
+            print(
+                f"[hybrid] chunk {absolute_start:,}-{absolute_stop:,}: "
+                f"predicting {len(chunk_rows):,} rows",
+                flush=True,
+            )
+            chunk_predictions = prediction_output_for_rows(
+                chunk_rows,
+                args=args,
+                progress_label=f"lora {absolute_start:,}-{absolute_stop:,}",
+            )
+            write_table(chunk_predictions, chunk_path)
+            print(
+                f"[hybrid] chunk {absolute_start:,}-{absolute_stop:,}: "
+                f"wrote {len(chunk_predictions):,} rows to {chunk_path}",
+                flush=True,
+            )
+
+        predictions = pd.concat([read_table(path) for path in chunk_paths], ignore_index=True)
+    else:
+        predictions = prediction_output_for_rows(
+            joined,
+            args=args,
+            progress_label="lora",
+        )
     write_table(predictions, args.output)
     print(f"[hybrid] wrote {len(predictions):,} predictions to {args.output}")
 
