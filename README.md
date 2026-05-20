@@ -143,6 +143,20 @@ PYTHONPATH=src uv run --python 3.11 --extra dev --extra embeddings python script
     --marker-sequences data/marker_sequences.jsonl \
     --device mps \
     --output artifacts/hybrid_predictions.parquet
+
+# Chunked uncultured-catalog run; keeps tabular values and replaces oxygen with LoRA.
+PYTHONPATH=src uv run --python 3.11 --extra dev --extra embeddings python scripts/39_predict_hybrid.py \
+    --features artifacts/uncultured_predictions.parquet \
+    --marker-sequences data/uncultured_marker_sequences.jsonl \
+    --join left \
+    --reuse-existing-tabular \
+    --device mps \
+    --batch-size 2 \
+    --chunk-size 250 \
+    --chunk-output-dir artifacts/hybrid_chunks \
+    --resume-chunks \
+    --progress-every 25 \
+    --output artifacts/hybrid_predictions.parquet
 ```
 
 For overnight runs, `scripts/run_train_and_eval.sh` chains the core pipeline. The HMM,

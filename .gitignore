@@ -38,6 +38,7 @@ artifacts/*
 !artifacts/phase_c.log
 !artifacts/phase_e.log
 !artifacts/uncultured_predictions.parquet
+!artifacts/hybrid_predictions.parquet
 !artifacts/embedding_results.json
 !artifacts/v1_vs_v2_comparison.md
 !artifacts/train_v2.log
@@ -46,6 +47,23 @@ artifacts/*
 !artifacts/score_uncultured_media.log
 !artifacts/train_combined.log
 !artifacts/combined_results.json
+!artifacts/baseline_results_pre_pme.json
+!artifacts/retrain_with_pme.log
+!artifacts/materialize_pme.log
+!artifacts/extract_seqs_smoke.log
+!artifacts/extract_seqs_full.log
+!artifacts/lora_smoke.log
+!artifacts/lora_smoke2.log
+!artifacts/lora_fold0_real.log
+!artifacts/lora/
+artifacts/lora/*
+!artifacts/lora/fold0_results_smoke.json
+!artifacts/lora/fold0_results.json
+!artifacts/lora/lambda_fold0_1ep_20260517T033023Z.log
+!artifacts/lora/fold0_results_oxygen.json
+!artifacts/lora/lambda_fold0_oxygen_1ep_20260517T103524Z.log
+!artifacts/lora_vs_baseline.md
+!artifacts/lora_oxygen_vs_all_task.md
 
 # Trained recommender models — needed for scripts/recommend.py to work after clone
 !models/
@@ -66,6 +84,11 @@ notebooks/scratch/
 .idea/
 *.swp
 .DS_Store
+
+# Cerebrium build artifacts (HMM data files are duplicated from data/ for the image build)
+cerebrium/*/kofam_relevant.hmm
+cerebrium/*/ko_thresholds.tsv
+cerebrium/*/markers.hmm
 
 # Agent / tool state
 .claude/
