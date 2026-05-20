@@ -23,7 +23,7 @@ import requests
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -201,9 +201,13 @@ def _safe_str(v, default=None):
 
 
 @app.get("/api/catalog")
-def catalog():
+def catalog(limit: int | None = None):
     """Return the full uncultured catalog as a list of dicts. Gzipped by middleware."""
     df = _state["catalog"]
+    if limit is not None:
+        if limit < 1:
+            raise HTTPException(status_code=400, detail="limit must be >= 1")
+        df = df.head(limit)
     rows = []
     for _, m in df.iterrows():
         rows.append({
@@ -333,6 +337,10 @@ def predict(req: PredictRequest):
 WEB_BUILD = ROOT / "web" / "dist"
 if WEB_BUILD.exists():
     app.mount("/assets", StaticFiles(directory=WEB_BUILD / "assets"), name="assets")
+
+    @app.head("/")
+    def root_head():
+        return Response(status_code=200)
 
     @app.get("/")
     def root():
