@@ -14,6 +14,18 @@ from microbe_model.train.media_recommender import (
 )
 
 
+def _load_benchmark_module():
+    import importlib.util
+
+    path = Path(__file__).parents[1] / "scripts" / "41_benchmark_media_recommender.py"
+    spec = importlib.util.spec_from_file_location("benchmark_media", path)
+    assert spec is not None
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
+
+
 def _synthetic_dataset(n: int = 400, seed: int = 0) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Build (features, strain_media, bacdive) with a real signal:
     strains with high f0 use medium A, low f0 use medium B.
@@ -108,3 +120,45 @@ def test_save_results_roundtrip(tmp_path: Path) -> None:
         assert "mean_pr_auc" in loaded[mid]
         assert "mean_roc_auc" in loaded[mid]
         assert "folds" in loaded[mid]
+
+
+def test_topk_metrics_scores_first_relevant_rank() -> None:
+    mod = _load_benchmark_module()
+    y = np.array([
+        [0, 1, 0],
+        [1, 0, 1],
+    ], dtype=np.uint8)
+    scores = np.array([
+        [0.2, 0.9, 0.1],
+        [0.8, 0.7, 0.6],
+    ])
+
+    out = mod.topk_metrics(y, scores, ks=(1, 2))
+
+    assert out["hit_at_1"] == 1.0
+    assert out["mrr"] == 1.0
+    assert out["recall_at_1"] == 0.75
+    assert out["precision_at_1"] == 1.0
+
+
+def test_taxonomy_popularity_falls_back_to_global() -> None:
+    mod = _load_benchmark_module()
+    y_train = pd.DataFrame(
+        [[1, 0], [1, 0], [1, 0], [0, 1]],
+        index=[1, 2, 3, 6],
+        columns=["A", "B"],
+    )
+    tax_train = pd.DataFrame({
+        "family": ["F1", "F1", "F1", "F2"],
+        "genus": ["G1", "G1", "G1", "G2"],
+    }, index=[1, 2, 3, 6])
+    tax_test = pd.DataFrame({
+        "family": ["F1", "unknown"],
+        "genus": ["G1", "unknown"],
+    }, index=[4, 5])
+    global_scores = y_train.mean(axis=0).to_numpy()
+
+    scores = mod.taxonomy_popularity_scores(y_train, tax_train, tax_test, global_scores)
+
+    assert scores[0].tolist() == [1.0, 0.0]
+    assert np.allclose(scores[1], global_scores)

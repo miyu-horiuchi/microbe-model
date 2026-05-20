@@ -56,6 +56,14 @@ For practical prediction, use the hybrid predictor in [docs/hybrid_predictor.md]
 tabular XGBoost heads for temperature/pH/salt plus LoRA for oxygen. The deployed UI
 surfaces whether each oxygen value came from `LoRA` or the `tabular` fallback.
 
+Media recommendation now has a dry-lab held-out benchmark in
+[artifacts/media_recommender_drylab_benchmark.md](artifacts/media_recommender_drylab_benchmark.md).
+On 5-fold family-heldout MediaDive links, the XGBoost recommender recovers at least
+one known medium in the top 5 for `77.5%` of evaluable strains, compared with `36.6%`
+for global medium popularity and `37.2%` for the taxonomic-popularity baseline.
+Median per-medium ROC-AUC is `0.910`; median PR-AUC is `0.183`, reflecting sparse,
+imbalanced medium labels.
+
 ## Approach
 
 ```
