@@ -1,5 +1,5 @@
 ---
-title: "Phenotype targeted protein language model embeddings for cultivation condition prediction in bacteria"
+title: "HMM-gated protein language model embeddings for bacterial cultivation condition prediction"
 authors:
   - name: Miyu Horiuchi
     affiliation: 1

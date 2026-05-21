@@ -55,7 +55,7 @@ def main() -> None:
     @page {
       size: letter;
       margin: 1in 1.25in;
-      @top-left { content: "Phenotype Targeted PLM Embeddings"; font-family: 'EB Garamond', 'Georgia', serif; font-size: 9pt; color: #333; }
+      @top-left { content: "HMM-Gated PLM Embeddings"; font-family: 'EB Garamond', 'Georgia', serif; font-size: 9pt; color: #333; }
       @bottom-center { content: counter(page); font-family: 'EB Garamond', 'Georgia', serif; font-size: 10pt; color: #333; }
     }
     body {
