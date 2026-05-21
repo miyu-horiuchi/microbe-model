@@ -114,6 +114,8 @@ def main() -> None:
       font-size: 10pt;
     }
     .keywords strong { font-variant: small-caps; letter-spacing: 0.03em; margin-right: 6px; }
+    figure, p > img { display: block; max-width: 92%; height: auto; margin: 14px auto 4px; }
+    img + br { display: none; }
     h1, h2, h3 {
       font-family: 'Latin Modern Roman', 'EB Garamond', 'Charter', 'Georgia', serif;
       font-weight: bold;

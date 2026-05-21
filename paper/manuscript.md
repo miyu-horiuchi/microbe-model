@@ -178,6 +178,20 @@ Table 5 consolidates the comparisons reported throughout §2 alongside published
 
 Three caveats are explicit in Table 5. (i) The LoRA oxygen macro-F1 is a single fold; the full five-fold benchmark is part of follow-up work. (ii) GenomeSPOT and Koblitz 2025 report binary oxygen tolerance, so the four-class macro-F1 column is not a like-for-like comparison for those rows; the binary numbers are listed for completeness. (iii) Li 2023 and Máša 2025 are listed to anchor the prior literature on related tasks but cannot be reduced to a single number on this table because their targets differ.
 
+Figures 1–3 visualise the three head-to-head subsets that are directly comparable: optimum temperature MAE against the two external comparators (Figure 1), four-class oxygen macro-F1 across the internal LoRA / tabular / pre-PTPE variants (Figure 2), and medium recommender Hit@5 against the two popularity baselines (Figure 3). Bars marked in black are variants of this work; grey bars are external comparators or baselines.
+
+![Figure 1](figures/fig_temperature_mae.png)
+
+**Figure 1.** Optimum temperature MAE on the same family-heldout subset (n=5,000) for GenomeSPOT and this work, and the best published number for Koblitz 2025 (21K-strain corpus, their own split). Lower is better.
+
+![Figure 2](figures/fig_oxygen_f1.png)
+
+**Figure 2.** Four-class oxygen requirement macro-F1 for this work's three model variants. Pre-PTPE and tabular are 5-fold means; LoRA is fold-0 validation. Higher is better.
+
+![Figure 3](figures/fig_medium_hit5.png)
+
+**Figure 3.** Medium recommender Hit@5 on the 5-fold family-heldout dry-lab benchmark (21,050 strains, 40 media). The XGBoost recommender recovers at least one known medium in the top 5 for 77.5% of strains, versus 37.2% for taxonomic popularity and 36.6% for global popularity.
+
 ---
 
 # 3. Discussion
