@@ -84,24 +84,37 @@ def fig_temperature() -> None:
 
 
 def fig_oxygen() -> None:
-    labels = [
-        "This work — pre-PTPE",
-        "This work — tabular",
-        "This work — LoRA",
+    rows = [
+        ("Koblitz 2025", 0.04, None, "#cccccc", "binary aerobe / anaerobe — different label space"),
+        ("GenomeSPOT", 0.04, None, "#cccccc", "binary tolerant / not-tolerant — different label space"),
+        ("This work — pre-PTPE", 0.412, "{:.3f}", THIS_WORK, None),
+        ("This work — tabular", 0.402, "{:.3f}", THIS_WORK, None),
+        ("This work — LoRA", 0.945, "{:.3f}", THIS_WORK, None),
     ]
-    values = [0.412, 0.402, 0.945]
-    is_this_work = [True, True, True]
-    fig, ax = plt.subplots(figsize=(5.2, 1.55))
-    hbar(
-        ax,
-        labels,
-        values,
-        is_this_work,
-        value_fmt="{:.3f}",
-        xlabel="Oxygen requirement macro-F1 (4-class) — higher is better",
-        best_is_min=False,
-    )
+    labels = [r[0] for r in rows]
+    values = [r[1] for r in rows]
+    colors = [r[3] for r in rows]
+    fig, ax = plt.subplots(figsize=(5.6, 2.0))
+    y = list(range(len(rows)))[::-1]
+    bars = ax.barh(y, values, color=colors, height=0.55)
+    for bar, row in zip(bars, rows):
+        if row[4] is not None:
+            bar.set_hatch("////")
+            bar.set_edgecolor("#888")
+    ax.set_yticks(y)
+    ax.set_yticklabels(labels)
+    ax.set_xlabel("Oxygen requirement macro-F1 (4-class) — higher is better")
+    ax.invert_yaxis()
+    for spine in ("top", "right"):
+        ax.spines[spine].set_visible(False)
+    ax.tick_params(axis="y", length=0)
     ax.set_xlim(0, 1.05)
+    for yi, row in zip(y, rows):
+        value, value_fmt, note = row[1], row[2], row[4]
+        if note is None:
+            ax.text(value + 0.02, yi, value_fmt.format(value), va="center", fontsize=8)
+        else:
+            ax.text(value + 0.02, yi, note, va="center", fontsize=8, color="#555", style="italic")
     fig.savefig(OUT_DIR / "fig_oxygen_f1.png")
     plt.close(fig)
 
