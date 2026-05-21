@@ -1,0 +1,21 @@
+{
+  "source_manifest": "artifacts/external_benchmark_manifest.parquet",
+  "seed": 20260520,
+  "rows": 5000,
+  "unique_accessions": 5000,
+  "fold_counts": {
+    "0": 1035,
+    "1": 821,
+    "2": 1114,
+    "3": 943,
+    "4": 1087
+  },
+  "label_counts": {
+    "temperature": 5000,
+    "ph": 933,
+    "salt": 779,
+    "oxygen": 2653,
+    "medium": 3889,
+    "all_four_conditions": 416
+  }
+}

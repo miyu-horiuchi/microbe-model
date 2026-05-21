@@ -71,6 +71,11 @@ artifacts/lora/*
 !artifacts/external_benchmark_status.md
 !artifacts/genomespot_smoke_benchmark.json
 !artifacts/genomespot_smoke_benchmark.md
+!artifacts/external_benchmark_manifest_5k.csv
+!artifacts/external_benchmark_manifest_5k.parquet
+!artifacts/external_benchmark_manifest_5k_summary.json
+!artifacts/genomespot_5k_benchmark.json
+!artifacts/genomespot_5k_benchmark.md
 !artifacts/carveme_smoke_status.json
 !artifacts/carveme_smoke_status.md
 

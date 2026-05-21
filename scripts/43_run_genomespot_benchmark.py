@@ -107,11 +107,28 @@ def run_one(row: pd.Series, *, genome_spot_dir: Path, fasta_dir: Path, output_di
     """Run GenomeSPOT for one row and return status plus parsed predictions."""
     bacdive_id = int(row["bacdive_id"])
     accession = str(row["genome_accession"])
+    output_prefix = output_dir / accession
+    pred_path = Path(f"{output_prefix}.predictions.tsv")
     contigs_path, proteins_path, input_error = ensure_inputs(row, fasta_dir)
     if input_error:
         return {"bacdive_id": bacdive_id, "genome_accession": accession, "status": "skipped", "error": input_error}
 
-    output_prefix = output_dir / accession
+    if pred_path.exists():
+        parsed = parse_prediction(pred_path)
+        return {
+            "bacdive_id": bacdive_id,
+            "genome_accession": accession,
+            "fold": int(row["fold"]),
+            "status": "ok",
+            "elapsed_s": 0.0,
+            "cached": True,
+            "true_temperature_c": _maybe_float(row.get("optimal_temperature_c")),
+            "true_ph": _maybe_float(row.get("optimal_ph")),
+            "true_salt_pct": _maybe_float(row.get("salt_tolerance_pct")),
+            "true_oxygen": str(row.get("oxygen_requirement") or ""),
+            **parsed,
+        }
+
     cmd = genomespot_command(
         genome_spot_dir=genome_spot_dir,
         contigs_path=contigs_path,
@@ -130,7 +147,6 @@ def run_one(row: pd.Series, *, genome_spot_dir: Path, fasta_dir: Path, output_di
             "elapsed_s": elapsed_s,
         }
 
-    pred_path = Path(f"{output_prefix}.predictions.tsv")
     if not pred_path.exists():
         return {
             "bacdive_id": bacdive_id,
@@ -215,11 +231,11 @@ def summarize(results: list[dict[str, Any]]) -> dict[str, Any]:
 def write_report(path: Path, payload: dict[str, Any]) -> None:
     summary = payload["summary"]
     lines = [
-        "# GenomeSPOT Held-Out Smoke Benchmark",
+        "# GenomeSPOT Held-Out Benchmark",
         "",
         "GenomeSPOT was run on rows selected from the same held-out manifest used",
-        "by the microbe-model media benchmark. This is a smoke benchmark unless",
-        "`limit` equals the full manifest size.",
+        "by the microbe-model media benchmark. The manifest and limit define",
+        "whether this is a smoke run, a representative subset, or the full run.",
         "",
         "## Setup",
         "",

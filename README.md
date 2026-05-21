@@ -67,9 +67,13 @@ imbalanced medium labels.
 External-tool benchmarking is prepared in
 [artifacts/external_benchmark_status.md](artifacts/external_benchmark_status.md).
 The manifest pins the same family-heldout strains for GenomeSPOT condition-trait
-comparison and CarveMe/gapseq-style medium-feasibility comparison, but the local
-machine still needs the full held-out genome FASTA set and the external tool
-binaries/databases before those baselines can be run.
+comparison and CarveMe/gapseq-style medium-feasibility comparison.
+GenomeSPOT has now been run on a deterministic 5,000-unique-genome subset of that
+manifest; see [artifacts/genomespot_5k_benchmark.md](artifacts/genomespot_5k_benchmark.md).
+The run completed 5,000/5,000 genomes with no failures and measured `4.393 C`
+temperature MAE, `0.608` pH MAE, and `1.981%` salt MAE. Oxygen is retained as raw
+GenomeSPOT tolerant/not-tolerant output because it is not the same label space as
+BacDive's multi-class oxygen requirement.
 Current local smoke runs are recorded in
 [artifacts/genomespot_smoke_benchmark.md](artifacts/genomespot_smoke_benchmark.md)
 and [artifacts/carveme_smoke_status.md](artifacts/carveme_smoke_status.md).
@@ -83,7 +87,7 @@ and [artifacts/carveme_smoke_status.md](artifacts/carveme_smoke_status.md).
 | **★ This work — hybrid** | **2.67** | **0.47** | **1.92** | **0.945**† | **0.78** | 46K | — |
 | ★ This work — tabular | 2.67 | 0.47 | 1.92 | 0.40 | 0.78 | 46K | — |
 | ★ This work — pre-PTPE | 2.74 | 0.47 | 1.94 | 0.41 | 0.78 | 46K | own ablation |
-| GenomeSPOT | 6.77 | 0.84 | 2.19 | binary only | — | tool | same rows, n=5 |
+| GenomeSPOT | 4.39 | 0.61 | 1.98 | binary only | — | tool | same split, n=5,000 |
 | Koblitz 2025 (Pfam-RF) | ≈ 2.94 | binary | binary | binary 0.85+ | — | 21K | their paper |
 | Li 2023 (KEGG-RF) | — | — | — | — | — | 96 | different task |
 | Máša 2025 (rule-based) | — | — | — | — | 2 media | traits-in | different task |
@@ -97,7 +101,7 @@ and [artifacts/carveme_smoke_status.md](artifacts/carveme_smoke_status.md).
 ### Temperature MAE — lower is better
 
 ```
-GenomeSPOT       ████████████████████████████████████████████  6.77 °C  ← worst
+GenomeSPOT       ████████████████████████████                  4.39 °C  ← worst
 Koblitz 2025     ██████████████████                            2.94 °C
 This work (pre)  █████████████████                             2.74 °C
 This work (+PTPE)████████████████                              2.67 °C  ← best
@@ -266,6 +270,13 @@ PYTHONPATH=src uv run --python 3.11 python scripts/43_run_genomespot_benchmark.p
     --require-label ph \
     --require-label salt \
     --require-label oxygen
+
+# Run the 5,000-genome GenomeSPOT subset used in the scoreboard.
+PYTHONPATH=src uv run --python 3.11 python scripts/43_run_genomespot_benchmark.py \
+    --manifest artifacts/external_benchmark_manifest_5k.parquet \
+    --limit 5000 \
+    --out-json artifacts/genomespot_5k_benchmark.json \
+    --out-md artifacts/genomespot_5k_benchmark.md
 ```
 
 For overnight runs, `scripts/run_train_and_eval.sh` chains the core pipeline. The HMM,
