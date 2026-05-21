@@ -200,76 +200,184 @@ KEGG, and embedding paths are independent — once their per-genome parquets exi
 
 ## Architecture
 
-### Core
-- **`src/microbe_model/data/bacdive.py`** — v2 REST client (public, no auth). Discovers
-  strains by batch-scanning the integer ID range; ~150K live records in 2K calls.
-- **`src/microbe_model/pipeline.py`** — streaming fetch + featurize. Each worker process
-  downloads a genome FASTA, runs pyrodigal, extracts features, and discards the FASTA —
-  no persistent genome storage. Resumable via the JSONL append log.
-- **`src/microbe_model/features/genome.py`** — pyrodigal CDS prediction + amino-acid
-  composition / codon / tetranucleotide features.
-- **`src/microbe_model/train/baseline.py`** — multi-task XGBoost with per-fold class
-  re-encoding for classification.
-- **`src/microbe_model/eval.py`** — markdown report renderer.
+The system is organised as **five layers**. Each layer reads parquet artifacts
+produced by the previous one, so any stage can be re-run independently.
 
-### Feature paths
-- **`src/microbe_model/features/markers.py`** — 48 verified Pfam markers across 8 categories
-  (T_opt, pH, oxygen, salt, vitamins, nitrogen, carbon, special). All IDs validated via
-  `scripts/23_verify_markers.py` against InterPro DESC fields.
-- **`src/microbe_model/features/kegg_modules.py`** — KEGG module rule parser (boolean
-  AND / OR / parens grammar) + AST evaluator for fractional & strict completeness scoring.
-- **`src/microbe_model/features/embeddings.py`** — frozen ESM-2 forward pass + mean-pool
-  per protein → per-proteome 320/640-dim vector (model-size dependent).
+```
+                  ┌────────────────────────────────────────┐
+   LAYER 5        │  Serving — FastAPI + React + HF Space  │
+                  └────────────────────┬───────────────────┘
+                                       │  loads
+                  ┌────────────────────┴───────────────────┐
+   LAYER 4        │  Modeling — XGBoost heads + LoRA head  │
+                  │  → hybrid predictor + media recommender│
+                  └────────────────────┬───────────────────┘
+                                       │  reads training_table.parquet
+                  ┌────────────────────┴───────────────────┐
+   LAYER 3        │  Feature fusion — wide table join      │
+                  └────────────────────┬───────────────────┘
+                                       │  reads 6 parquet shards
+                  ┌────────────────────┴───────────────────┐
+   LAYER 2        │  Feature extraction — 6 parallel paths │
+                  └────────────────────┬───────────────────┘
+                                       │  reads bacdive_phenotypes + genome FASTAs
+                  ┌────────────────────┴───────────────────┐
+   LAYER 1        │  Ingestion — BacDive v2 + NCBI Datasets│
+                  └────────────────────────────────────────┘
+```
 
-### Scanners (numbered scripts)
-- **`24_unified_hmm_scan.py`** — pyhmmer scan over the 48-marker Pfam library, dedup'd
-  by genome accession, streams to `data/hmm_features.parquet`.
-- **`28_kofam_scan.py`** — same architecture but against KOfam (~3K KEGG-relevant HMMs);
-  output is per-genome KO sets.
-- **`29_compute_kegg_completeness.py`** — applies the KEGG module rules to KO hits,
-  yields ~570 fractional-completeness columns per genome.
-- **`30_parse_isolation_metadata.py`** — parses raw BacDive JSONs for lat/lon/country/
-  host species; outputs `data/isolation_metadata.parquet` with one-hot encodings.
-- **`modal_embed.py`** — Modal app for ESM-2 t30 (or t33) extraction on A10G GPUs.
+### Layer 1 — Ingestion
+| File | Role |
+|---|---|
+| `src/microbe_model/data/bacdive.py` | v2 REST client (public, no auth). Batch-scans integer ID range to discover ~150K live strains in ~2K calls. |
+| `scripts/01_fetch_bacdive.py` | Sweeps the BacDive API and writes `data/bacdive_phenotypes.parquet`. |
+| `src/microbe_model/pipeline.py` | Async streaming fetch + featurize. Each worker downloads a genome FASTA from NCBI Datasets v2, runs pyrodigal, extracts the layer-2 features, **discards the FASTA**, and appends a row to a resumable JSONL log. |
+| `scripts/02_fetch_and_featurize.py` | CLI entry point that drives the pipeline over BacDive rows. |
+| `scripts/18_resolve_species_to_genome.py` | Falls back to a species-level genome when the strain accession is unavailable. |
+| `scripts/06_fetch_gtdb_candidates.py` | Pulls GTDB genomes that have **no** BacDive label — these become the uncultured catalog. |
 
-### UI and API
-- **`api/main.py`** — FastAPI backend for the Hugging Face Space. It serves the React
-  build, recommender models, catalog API, NCBI lookup, and on-demand genome prediction.
-- **`web/`** — React/Vite frontend used by the Docker Space at
-  <https://huggingface.co/spaces/miyuiu/microbe-model>.
-- **Hybrid catalog behavior** — `/api/catalog` always loads
-  `artifacts/uncultured_predictions.parquet`; if `artifacts/hybrid_predictions.parquet`
-  exists, the API overlays matching `pred_*` columns by `genome_accession`.
-  Oxygen rows include `O2_source` so the UI can show `LoRA` vs `tabular`.
-- **Live `/api/predict` behavior** — on-demand predictions currently use the deployed
-  tabular phenotype heads and return per-phenotype `source` metadata. LoRA-backed
-  oxygen is used for precomputed hybrid catalog rows when the hybrid artifact is present.
+### Layer 2 — Feature extraction (six parallel paths)
+All six produce a per-genome parquet keyed by `genome_accession`. Layer 3 left-joins them.
+
+| # | Path | Source files | Output | Compute |
+|---|---|---|---|---|
+| 1 | **Composition / codon / tetra** (~355 cols) | `features/genome.py`, `features/composition.py` | `data/features.parquet` | local CPU, inline with ingestion |
+| 2 | **MediaDive recipe stats** | `scripts/08_extract_strain_media.py`, `09_fetch_media_recipes.py`, `20_build_mediadive_features.py` | `data/mediadive_features.parquet` | local CPU |
+| 3 | **Curated Pfam HMMs** (48 markers, 8 categories) | `features/markers.py`, `scripts/23_verify_markers.py`, `scripts/24_unified_hmm_scan.py` | `data/hmm_features.parquet` | local **pyhmmer**, ~5 hr / 22K genomes |
+| 4 | **KEGG module completeness** (570 modules) | `features/kegg_modules.py`, `scripts/27_fetch_kegg_modules.py`, `28_kofam_scan.py`, `29_compute_kegg_completeness.py`, `modal_kofam.py` | `data/kegg_modules.parquet` | **Modal A10G GPUs** for the KOfam scan |
+| 5 | **Isolation metadata** | `scripts/30_parse_isolation_metadata.py` | `data/isolation_metadata.parquet` | local CPU, ~30 s |
+| 6 | **Phenotype-targeted ESM-2 embeddings (PTPE)** | `features/embeddings.py`, `scripts/36_extract_marker_sequences.py`, `modal_per_marker_embed.py`, `_materialize_per_marker_embeddings.py` | `data/per_marker_embeddings.parquet` | **Modal A10G GPUs** (frozen ESM-2 t30) |
+
+Per-genome the six paths concatenate to **~6,312 features**.
+
+### Layer 3 — Feature fusion
+| File | Role |
+|---|---|
+| `scripts/21_build_strain_catalog.py` | Materialises the deduplicated `data/strain_catalog.parquet`. |
+| `scripts/31_merge_features.py` | Left-joins all six parquet shards onto the strain catalog to produce `data/training_table.parquet` (the canonical input to every modeling step). |
+| `scripts/13_compare_v1_v2.py` | A/B harness for proving each new feature path lifts the metric. |
+
+### Layer 4 — Modeling
+| File | Role |
+|---|---|
+| `src/microbe_model/train/baseline.py` | Multi-task **XGBoost**. Regression heads for T_opt/pH/salt, classification head for oxygen. 5-fold **GroupKFold by family** so leakage is suppressed. Per-fold class re-encoding. |
+| `src/microbe_model/train/media_recommender.py` | Per-medium binary classifiers — the recommender. Trained by `scripts/10_train_media_recommender.py`. |
+| `src/microbe_model/train/lora_model.py` + `lora_trainer.py` | LoRA fine-tune of ESM-2 t12 on marker proteins. Driven by `modal_train_lora.py` (Modal) or `lambda_train_lora.py` (Lambda) or the Kaggle notebook in `kaggle/`. |
+| `scripts/03_train_baseline.py` | Train the tabular XGBoost heads. |
+| `scripts/15_train_phenotype_heads.py` | Retrain individual phenotype heads after a feature update. |
+| `scripts/37_compare_lora_baseline.py`, `38_eval_lora_checkpoint.py` | LoRA vs tabular head A/B and checkpoint eval. |
+| `scripts/39_predict_hybrid.py` | **Hybrid predictor.** Uses tabular heads for T_opt/pH/salt and the LoRA head for oxygen. Tags every output row with `O2_source ∈ {LoRA, tabular}`. |
+| `src/microbe_model/eval.py` + `scripts/04_eval.py`, `05_overnight_summary.py` | Markdown report renderer → `artifacts/eval_report.md`, `OVERNIGHT_SUMMARY.md`. |
+
+Outputs of this layer (committed via LFS):
+- `models/phenotype/` — XGBoost heads for the 4 phenotype targets.
+- `models/recommender/` — per-medium binary classifiers.
+- LoRA checkpoint shipped as a GitHub Release (`lora-fold0-20260518`).
+
+### Layer 5 — Serving
+| File | Role |
+|---|---|
+| `app.py` | Entrypoint launched by the Docker Space. |
+| `Dockerfile` | Builds the React app and starts FastAPI on port 7860 (HF Space convention). |
+| `api/main.py` | FastAPI backend. Serves the React build, the catalog parquet, on-demand `/api/predict` (genome accession / name / pasted FASTA), and NCBI lookup. |
+| `web/` (Vite + React) | Frontend deployed to <https://huggingface.co/spaces/miyuiu/microbe-model>. Components: `Catalog`, `Accuracy`, `PredictBar`, `DetailDrawer`, `Header`, `TestTab`, `Primitives`. |
+
+Hybrid catalog overlay:
+- `/api/catalog` always reads `artifacts/uncultured_predictions.parquet`.
+- If `artifacts/hybrid_predictions.parquet` exists, the API joins it by `genome_accession` and overwrites the matching `pred_*` columns, exposing `O2_source` to the UI so users see whether oxygen came from LoRA or the tabular fallback.
+
+### Cross-cutting — Benchmarking & external comparison
+| File | Role |
+|---|---|
+| `scripts/41_benchmark_media_recommender.py` | 5-fold family-heldout dry-lab benchmark for the recommender. |
+| `scripts/42_prepare_external_benchmarks.py` | Pins the same held-out strains/folds for GenomeSPOT, CarveMe, gapseq. |
+| `scripts/43_run_genomespot_benchmark.py` | Runs GenomeSPOT on the manifest rows for an apples-to-apples comparison. |
+| `tests/test_hybrid_predictor.py`, `test_lora_checkpoint_eval.py`, `test_external_benchmark_prep.py`, `test_genomespot_benchmark.py`, `test_media_recommender.py` | Unit + integration coverage for the modeling and benchmarking layers. |
+
+### Remote-execution surfaces
+The local Mac can't sustain the KOfam scan or full ESM-2 inference, so the heavy
+stages dispatch to managed GPUs. Each surface has its own driver:
+
+| Driver | Used for |
+|---|---|
+| `scripts/modal_embed.py` | ESM-2 t30 full-proteome embedding on Modal A10G. |
+| `scripts/modal_per_marker_embed.py` | PTPE (marker-only) ESM-2 embedding on Modal. |
+| `scripts/modal_kofam.py` | KOfam HMM scan on Modal. |
+| `scripts/modal_train_lora.py` | LoRA fine-tune on Modal. |
+| `scripts/lambda_train_lora.py` | Same fine-tune, Lambda Labs backend. |
+| `kaggle/lora_train_kaggle.ipynb` + `kaggle/upload.sh` | Kaggle notebook fallback for LoRA training. |
+| `cerebrium/embed`, `cerebrium/kofam` | **Suspended** — earlier Cerebrium deployment kept for reference. |
 
 ## Layout
 
 ```
-src/microbe_model/
-  config.py            # paths, env vars, prediction targets
-  data/bacdive.py      # BacDive v2 client
-  features/
-    genome.py          # pyrodigal + composition / codon / tetra
-    composition.py     # tetranucleotide + codon-usage helpers
-    markers.py         # 48 verified Pfam markers (8 categories)
-    kegg_modules.py    # KEGG module rule parser + AST evaluator
-    embeddings.py      # ESM-2 mean-pool helpers
-  pipeline.py          # streaming async fetch + featurize
-  train/
-    baseline.py        # multi-task XGBoost + GroupKFold
-    media_recommender.py  # per-medium binary classifiers
-  eval.py              # markdown report renderer
-scripts/               # numbered pipeline entry points (01–42 + modal_*.py)
-api/                   # FastAPI backend for the Docker/Hugging Face Space
-web/                   # React/Vite frontend for the deployed UI
-tests/                 # unit + integration tests
-data/                  # (gitignored) parquet tables, JSONL features, BacDive cache
-artifacts/             # eval report, training results, logs
-models/                # trained phenotype heads + per-medium recommender models (LFS)
+microbe-model/
+├── app.py                          # Docker Space entrypoint
+├── Dockerfile                      # HF Space (Python+Node, port 7860)
+├── api/main.py                     # FastAPI backend (catalog + /predict)
+├── web/                            # React/Vite frontend
+│   └── src/
+│       ├── App.jsx, main.jsx, theme.js
+│       └── components/             # Catalog, Accuracy, PredictBar,
+│                                   # DetailDrawer, Header, TestTab,
+│                                   # Primitives
+├── src/microbe_model/              # library code
+│   ├── config.py                   # paths, env vars, prediction targets
+│   ├── pipeline.py                 # streaming fetch + featurize (Layer 1)
+│   ├── eval.py                     # markdown report renderer
+│   ├── explore.py
+│   ├── data/
+│   │   └── bacdive.py              # BacDive v2 client
+│   ├── features/                   # Layer 2 implementations
+│   │   ├── genome.py               # pyrodigal + composition
+│   │   ├── composition.py          # codon / tetranucleotide helpers
+│   │   ├── markers.py              # 48 verified Pfam markers
+│   │   ├── kegg_modules.py         # KEGG rule parser + AST evaluator
+│   │   └── embeddings.py           # ESM-2 mean-pool helpers
+│   └── train/                      # Layer 4 implementations
+│       ├── baseline.py             # multi-task XGBoost + GroupKFold
+│       ├── media_recommender.py    # per-medium binary classifiers
+│       ├── lora_model.py           # LoRA wrapper around ESM-2 t12
+│       └── lora_trainer.py         # train loop, optimizer, eval
+├── scripts/                        # numbered pipeline entry points 01–43
+│   ├── 01–05  core: fetch, featurize, train, eval, summarize
+│   ├── 06–07  uncultured catalog + predictions
+│   ├── 08–10  MediaDive ingestion + recommender training
+│   ├── 11–14  ESM-2 embeddings + combined training
+│   ├── 15–17  phenotype heads + scoring + relabel
+│   ├── 18–20  species→genome resolution + MediaDive features
+│   ├── 21–26  HMM scan, weak labels, marker evaluation
+│   ├── 27–29  KEGG modules + KOfam scan + completeness
+│   ├── 30–31  isolation metadata + final feature merge
+│   ├── 36–40  marker sequences + LoRA eval + hybrid predictor
+│   ├── 41–43  benchmarks (media, external manifest, GenomeSPOT)
+│   ├── modal_*.py                  # Modal GPU dispatchers
+│   └── lambda_train_lora.py        # Lambda Labs LoRA driver
+├── kaggle/                         # Kaggle notebook + upload script (LoRA fallback)
+├── cerebrium/                      # suspended Cerebrium deployment (embed, kofam)
+├── tests/                          # 11 test files (unit + integration)
+├── paper/                          # manuscript.md / .html / .pdf + render.py
+├── docs/                           # hybrid_predictor.md, lora_results.md, etc.
+├── data/                           # (gitignored) parquet shards + JSONL features
+├── artifacts/                      # eval reports, training logs, prediction parquets
+└── models/                         # trained heads + recommender (LFS)
+    ├── phenotype/
+    └── recommender/
 ```
+
+### Key data artifacts (between stages)
+| Parquet | Produced by | Consumed by |
+|---|---|---|
+| `data/bacdive_phenotypes.parquet` | `01_fetch_bacdive.py` | Layer 1 ingestion |
+| `data/features.parquet` | `02_fetch_and_featurize.py` | Layer 3 merge |
+| `data/hmm_features.parquet` | `24_unified_hmm_scan.py` | Layer 3 merge |
+| `data/kegg_modules.parquet` | `29_compute_kegg_completeness.py` | Layer 3 merge |
+| `data/mediadive_features.parquet` | `20_build_mediadive_features.py` | Layer 3 merge |
+| `data/isolation_metadata.parquet` | `30_parse_isolation_metadata.py` | Layer 3 merge |
+| `data/per_marker_embeddings.parquet` | `_materialize_per_marker_embeddings.py` | Layer 3 merge |
+| `data/training_table.parquet` | `31_merge_features.py` | all training scripts |
+| `artifacts/uncultured_predictions.parquet` | `07_predict_uncultured.py` | served catalog |
+| `artifacts/hybrid_predictions.parquet` | `39_predict_hybrid.py` | served catalog overlay |
 
 ## What this is *not* yet
 
