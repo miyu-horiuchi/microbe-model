@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import re
 import subprocess
+import sys
 from pathlib import Path
 
 import markdown
@@ -25,11 +26,12 @@ def get_field(frontmatter: str, key: str) -> str | None:
 
 
 def main() -> None:
-    src_path = Path("paper/manuscript.md")
+    src_path = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("paper/manuscript.md")
     src = src_path.read_text()
     frontmatter, body = split_frontmatter(src)
 
     title = get_field(frontmatter, "title") or "Manuscript"
+    header_text = get_field(frontmatter, "header") or "HMM-Gated PLM Embeddings"
     # Hard-coded author + affiliation block; edit here when collaborators are confirmed.
     author_block_html = """
       <table class="authors"><tr>
@@ -55,7 +57,7 @@ def main() -> None:
     @page {
       size: letter;
       margin: 1in 1.25in;
-      @top-left { content: "HMM-Gated PLM Embeddings"; font-family: 'EB Garamond', 'Georgia', serif; font-size: 9pt; color: #333; }
+      @top-left { content: "__HEADER__"; font-family: 'EB Garamond', 'Georgia', serif; font-size: 9pt; color: #333; }
       @bottom-center { content: counter(page); font-family: 'EB Garamond', 'Georgia', serif; font-size: 10pt; color: #333; }
     }
     body {
@@ -188,18 +190,20 @@ def main() -> None:
   {rest_html}
 </body></html>"""
 
-    Path("paper/manuscript.html").write_text(html)
-    print("Wrote paper/manuscript.html")
+    html = html.replace("__HEADER__", header_text)
+    html_path = src_path.with_suffix(".html")
+    pdf_path = src_path.with_suffix(".pdf")
+    html_path.write_text(html)
+    print(f"Wrote {html_path}")
 
-    out_pdf = Path("paper/manuscript.pdf").absolute()
     subprocess.run([
         "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
         "--headless", "--disable-gpu",
         "--no-pdf-header-footer",
-        f"--print-to-pdf={out_pdf}",
-        f"file://{Path('paper/manuscript.html').absolute()}",
+        f"--print-to-pdf={pdf_path.absolute()}",
+        f"file://{html_path.absolute()}",
     ], check=True)
-    print(f"Wrote {out_pdf}")
+    print(f"Wrote {pdf_path.absolute()}")
 
 
 if __name__ == "__main__":

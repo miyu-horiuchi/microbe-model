@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>microbe-model: architecture and design decisions</title>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;700&display=swap" rel="stylesheet">
+<style>
+    @page {
+      size: letter;
+      margin: 1in 1.25in;
+      @top-left { content: "microbe-model — architecture"; font-family: 'EB Garamond', 'Georgia', serif; font-size: 9pt; color: #333; }
+      @bottom-center { content: counter(page); font-family: 'EB Garamond', 'Georgia', serif; font-size: 10pt; color: #333; }
+    }
+    body {
+      font-family: 'Latin Modern Roman', 'EB Garamond', 'Charter', 'Georgia', serif;
+      font-size: 10.5pt;
+      line-height: 1.4;
+      text-align: justify;
+      color: #111;
+      max-width: none;
+      margin: 0;
+      padding: 0;
+    }
+    h1.paper-title {
+      text-align: center;
+      text-transform: lowercase;
+      font-variant: small-caps;
+      font-weight: bold;
+      font-size: 18pt;
+      letter-spacing: 0.04em;
+      border-top: 4px solid #000;
+      border-bottom: 1.5px solid #000;
+      padding: 12px 0 14px;
+      margin: 8px 0 18px;
+      line-height: 1.2;
+    }
+    table.authors {
+      margin: 0 auto 18px;
+      border-collapse: collapse;
+    }
+    table.authors td {
+      text-align: center;
+      padding: 0 32px;
+      vertical-align: top;
+      line-height: 1.3;
+      font-size: 11pt;
+    }
+    table.authors .email { font-family: 'Menlo', 'Consolas', monospace; font-size: 9pt; }
+    .abstract-block {
+      margin: 18px 0.5in 18px;
+    }
+    .abstract-heading {
+      text-align: center;
+      font-variant: small-caps;
+      letter-spacing: 0.05em;
+      font-weight: bold;
+      font-size: 11pt;
+      margin: 6px 0 6px;
+    }
+    .abstract-block p {
+      font-size: 10pt;
+      text-align: justify;
+      margin: 0;
+    }
+    .keywords {
+      margin: 6px 0 24px;
+      font-size: 10pt;
+    }
+    .keywords strong { font-variant: small-caps; letter-spacing: 0.03em; margin-right: 6px; }
+    figure, p > img { display: block; max-width: 92%; height: auto; margin: 14px auto 4px; }
+    img + br { display: none; }
+    h1, h2, h3 {
+      font-family: 'Latin Modern Roman', 'EB Garamond', 'Charter', 'Georgia', serif;
+      font-weight: bold;
+      color: #000;
+      page-break-after: avoid;
+    }
+    h1 {
+      font-size: 13pt;
+      margin: 22px 0 8px;
+      border: none;
+      padding: 0;
+    }
+    h2 { font-size: 11.5pt; margin: 16px 0 6px; }
+    h3 { font-size: 10.5pt; margin: 12px 0 4px; font-style: italic; font-weight: normal; }
+    p { margin: 0 0 6px; text-align: justify; }
+    table:not(.authors) {
+      border-collapse: collapse;
+      margin: 12px auto;
+      font-size: 9.5pt;
+      min-width: 60%;
+    }
+    table:not(.authors) th {
+      border-top: 1.2px solid #000;
+      border-bottom: 0.6px solid #000;
+      padding: 4px 10px;
+      text-align: left;
+      font-weight: bold;
+      background: none;
+    }
+    table:not(.authors) td {
+      padding: 3px 10px;
+      border: none;
+    }
+    table:not(.authors) tr:last-child td {
+      border-bottom: 1.2px solid #000;
+    }
+    code {
+      font-family: 'Menlo', 'Consolas', monospace;
+      font-size: 9pt;
+      background: #f4f4f4;
+      padding: 1px 4px;
+      border-radius: 2px;
+    }
+    pre code {
+      display: block;
+      padding: 6px 10px;
+      overflow-x: auto;
+      background: #f4f4f4;
+      border-left: 2px solid #888;
+    }
+    hr { display: none; }
+    strong { color: #000; }
+    em { color: #222; font-style: italic; }
+    ul, ol { margin: 6px 0 6px 22px; padding: 0; }
+    li { margin: 2px 0; text-align: justify; }
+    </style></head>
+<body>
+  <h1 class="paper-title">microbe-model: architecture and design decisions</h1>
+  
+      <table class="authors"><tr>
+        <td><strong>Miyu Horiuchi</strong><br>
+            <span class="email">miyuh@alumni.upenn.edu</span></td>
+      </tr></table>
+    
+  <div class="abstract-block">
+    <div class="abstract-heading">Abstract</div>
+    <p>This document accompanies the manuscript. It visualises the production system and explains the choices behind each architectural decision: what was chosen, what alternatives existed, and what tradeoff each option represents. It is intended for readers who want to reproduce or extend the work and need to understand why each layer is the way it is.</p>
+<hr />
+  </div>
+  <p class="keywords"><strong>Keywords</strong></p>
+  <h1>1. System overview</h1>
+<p>The production system is a five layer pipeline. Each layer reads parquet artifacts produced by the previous layer, so any stage can be re-run independently. Six independent feature paths are computed in Layer 2 and joined into a single wide table in Layer 3.</p>
+<p><img alt="System overview" src="figures/arch_system_overview.png" /></p>
+<p><strong>Figure 1.</strong> The end to end pipeline from raw BacDive labels to a deployed prediction. Layer numbers correspond to scripts in the repository: Layer 1 is <code>scripts/01_*</code> through <code>scripts/02_*</code>; Layer 2 is <code>scripts/08-31</code>; Layer 3 is <code>scripts/31_merge_features.py</code>; Layer 4 is <code>scripts/03_train_baseline.py</code>, <code>scripts/10_train_media_recommender.py</code>, <code>scripts/modal_train_lora.py</code>, and <code>scripts/39_predict_hybrid.py</code>; Layer 5 is <code>api/main.py</code> and <code>web/</code>.</p>
+<hr />
+<h1>2. Per layer design decisions</h1>
+<h2>2.1 Data source: BacDive</h2>
+<p><strong>What we chose.</strong> BacDive v2 REST API as the primary label source. 46,029 strains with at least one of the four cultivation targets non null, joined to NCBI Datasets v2 genome accessions.</p>
+<p><strong>Alternatives considered.</strong></p>
+<ul>
+<li>GTDB plus manual literature curation. Larger genome catalog but no phenotype labels.</li>
+<li>KOMODO. Genome to medium predictor with its own curated label set. Smaller, narrower target.</li>
+<li>PATRIC / BV-BRC phenotype tables. Overlaps heavily with BacDive but with thinner field coverage.</li>
+</ul>
+<p><strong>Tradeoff.</strong> BacDive has the largest curated cultivation phenotype set in the public literature but is survivorship biased: only organisms that have already been cultured at least once make it in. The model is therefore appropriate as a first cultivation attempt recommender, not as a guarantee that lineages with no close cultured relatives will be recoverable. This limitation is stated explicitly in the manuscript and is the reason wet lab validation is on the future work list.</p>
+<h2>2.2 Streaming featurization</h2>
+<p><strong>What we chose.</strong> Each worker process downloads a genome FASTA from NCBI Datasets, runs pyrodigal for CDS prediction, extracts all six feature paths, and discards the FASTA. The pipeline is resumable via JSONL append logs.</p>
+<p><strong>Alternatives considered.</strong></p>
+<ul>
+<li>Persist all FASTAs to disk for full reproducibility.</li>
+<li>Stream once into a single combined parquet without intermediate per path artifacts.</li>
+</ul>
+<p><strong>Tradeoff.</strong> Persisting 22,300 FASTAs would consume roughly 200 GB and force a different deployment story. The streaming approach trades reproducibility of the exact bytes (NCBI is mutable for some accessions over time) for fitting in a normal developer machine. The append only JSONL log preserves the exact features extracted, which is the artifact that matters for re-training.</p>
+<h2>2.3 Six independent feature paths</h2>
+<p><strong>What we chose.</strong> Composition / codon / tetranucleotide, MediaDive recipe metadata, curated Pfam HMM markers, KEGG module completeness, isolation metadata, and phenotype targeted ESM-2 embeddings (PTPE). 6,313 features total per genome. The paths are computed independently and joined by <code>genome_accession</code>.</p>
+<p><strong>Alternatives considered.</strong></p>
+<ul>
+<li>A single end to end deep model that learns features directly from genome sequence.</li>
+<li>Fewer feature paths (e.g. composition plus Pfam only, as in Koblitz 2025).</li>
+</ul>
+<p><strong>Tradeoff.</strong> Independent paths let XGBoost decide per target which path matters. The feature target importance matrix below shows that this matters: oxygen is dominated by Pfam HMMs and the LoRA head, medium is dominated by KEGG module completeness, and temperature is dominated by composition / codon statistics. A single end to end model could in principle learn this routing, but it would require orders of magnitude more compute and would lose the interpretability that lets us debug per target failures.</p>
+<p><img alt="Feature/target importance" src="figures/arch_feature_target_matrix.png" /></p>
+<p><strong>Figure 2.</strong> Which feature path matters for which target. Shading from white (n/a) through grey (weak / contributes) to black (dominant). LoRA on marker proteins is a target specific override only used for oxygen in the production hybrid.</p>
+<h2>2.4 HMM gating for PTPE</h2>
+<p><strong>What we chose.</strong> Run pyhmmer against eight phenotype relevant HMM marker families, embed only the matched proteins with ESM-2 t30, and mean pool within each category.</p>
+<p><strong>Alternatives considered.</strong></p>
+<ul>
+<li>Whole proteome ESM-2 pooling: embed every protein and average. The "naive" PLM baseline.</li>
+<li>Random or attention based per protein pooling without HMM gating.</li>
+<li>Attention pooled per category encoder instead of mean pool.</li>
+</ul>
+<p><strong>Tradeoff.</strong> Whole proteome pooling drowns the few phenotype relevant proteins (roughly 12 cytochromes for oxygen, for example) under the roughly 4,000 housekeeping proteins, producing a feature vector that is biologically dilute. HMM gating concentrates the signal but means we are blind to phenotype contributions from proteins we did not include in the 48 marker panel. The manuscript explicitly lists this as a limitation: targets that depend on protein families outside the 48 marker panel are likely undermodeled. Attention pooled per category is the most natural follow up and is on the future work list.</p>
+<h2>2.5 ESM-2 size and the LoRA upgrade</h2>
+<p><strong>What we chose.</strong> Frozen ESM-2 t30 for PTPE features. Separately, LoRA fine tune ESM-2 t12 on HMM gated marker sequences and use the LoRA oxygen head in production.</p>
+<p><strong>Alternatives considered.</strong></p>
+<ul>
+<li>Larger ESM-2 (t33) for richer features at higher compute cost.</li>
+<li>DNA foundation models such as Evo 2.</li>
+<li>Full fine tune of ESM-2 rather than LoRA adapters.</li>
+</ul>
+<p><strong>Tradeoff.</strong> ESM-2 t30 was the largest model that could be run on Modal A10G GPUs within a reasonable budget for 22,300 genomes. LoRA fine tuning at t12 is the smallest variant that solves the oxygen classification task; the manuscript reports macro F1 of 0.945 on fold 0, which is the strongest result in the system. Going to a larger PLM or to a DNA foundation model would likely add more lift but would require an order of magnitude more compute and is reserved for the follow up paper. Full fine tune of ESM-2 was rejected because LoRA adapters give the bulk of the benefit at less than 10% of the trainable parameter count.</p>
+<h2>2.6 Hybrid predictor</h2>
+<p><strong>What we chose.</strong> A per target model selection stack: tabular XGBoost for temperature, pH, and salt, LoRA fine tuned ESM-2 t12 for the four class oxygen target, and the tabular MediaDive recommender for medium ranking.</p>
+<p><strong>Alternatives considered.</strong></p>
+<ul>
+<li>A single all task model that handles every target uniformly (either pure XGBoost or pure LoRA).</li>
+<li>A two stage stacked model where the LoRA head provides features into a downstream XGBoost.</li>
+</ul>
+<p><strong>Tradeoff.</strong> Fold 0 LoRA is dramatically better at oxygen (macro F1 0.945 vs 0.402 for tabular) but worse for the continuous targets: temperature MAE 3.67 vs 2.67 °C, pH MAE 0.56 vs 0.47. A single all task model would be forced to choose between these failure modes. The hybrid lets each target use its strongest validated head and is fully reproducible from <code>scripts/39_predict_hybrid.py</code>. Every served row carries an <code>O2_source</code> flag indicating whether the prediction came from LoRA or the tabular fallback.</p>
+<p><img alt="Hybrid decision matrix" src="figures/arch_hybrid_decision.png" /></p>
+<p><strong>Figure 3.</strong> Production model selection matrix. Shaded cells indicate the production choice for each target. Tabular wins three of four cultivation targets and medium ranking; LoRA wins oxygen.</p>
+<h2>2.7 XGBoost as the tabular base</h2>
+<p><strong>What we chose.</strong> XGBoost with 5 fold GroupKFold by family. Hyperparameters: <code>max_depth=5</code>, <code>learning_rate=0.05</code>, <code>n_estimators=500</code> for regression and <code>300</code> for classification, with <code>early_stopping_rounds=50</code>.</p>
+<p><strong>Alternatives considered.</strong></p>
+<ul>
+<li>LightGBM (slightly faster training).</li>
+<li>scikit-learn random forests (matches Koblitz 2025).</li>
+<li>CatBoost (better categorical handling).</li>
+<li>MLP heads on top of the feature stack.</li>
+</ul>
+<p><strong>Tradeoff.</strong> XGBoost is the strongest single shot tabular learner on this kind of mixed numeric / sparse / interaction heavy feature matrix, handles missing values natively (essential because pH and salt labels are sparse), and trains on CPU in minutes rather than hours. LightGBM would be roughly equivalent but has less mature handling of label sparsity per target. The Koblitz 2025 reference baseline is also a tree ensemble, which keeps the comparison apples to apples.</p>
+<h2>2.8 Family grouped K fold</h2>
+<p><strong>What we chose.</strong> 5 fold GroupKFold on the BacDive <code>family</code> field with genus then species fallback for the 4.5% of strains without a family assignment.</p>
+<p><strong>Alternatives considered.</strong></p>
+<ul>
+<li>Random K fold (would leak family identity into train and test).</li>
+<li>Leave one phylum out (more demanding; required by Li et al. 2023).</li>
+<li>Date based split (held out by deposition year; impossible because BacDive does not consistently expose deposit dates).</li>
+</ul>
+<p><strong>Tradeoff.</strong> Family grouped CV controls for trivial leakage because no family appears in both train and test, but does not address the more demanding out of clade generalization. The manuscript states this explicitly as a limitation and lists leave one phylum out as the next experiment, with the caveat that 5 of 30 phyla have fewer than 50 BacDive strains and would not be statistically meaningful as held out sets.</p>
+<h2>2.9 Remote execution surfaces</h2>
+<p><strong>What we chose.</strong> Modal A10G GPUs for the heavy stages (KOfam scan, ESM-2 embedding, LoRA training). Local Mac for everything else.</p>
+<p><strong>Alternatives considered.</strong></p>
+<ul>
+<li>Cerebrium (used earlier, suspended after dispatch problems).</li>
+<li>Lambda Labs (used for one off LoRA runs).</li>
+<li>Kaggle notebooks (used for free GPU LoRA fallback).</li>
+<li>Local Mac only (tried; KOfam scan thrashed swap, ESM-2 t30 was hours per batch).</li>
+<li>AWS / GCP managed GPU instances (more expensive, more setup).</li>
+</ul>
+<p><strong>Tradeoff.</strong> Modal A10G hits the right point on the cost / latency / setup tradeoff curve for batch jobs that run for minutes to hours. Cerebrium had the most ergonomic developer experience but was unreliable for our workload at the time. Local Mac would have made the project impossible at this scale (the KOfam scan alone would have taken weeks). The cost of Modal for the published results was on the order of dozens of dollars, not hundreds.</p>
+<h2>2.10 Serving stack</h2>
+<p><strong>What we chose.</strong> FastAPI backend serving the React / Vite frontend, deployed as a Docker container on HuggingFace Spaces.</p>
+<p><strong>Alternatives considered.</strong></p>
+<ul>
+<li>Gradio (simpler but less control over UI; would have to rebuild the catalog browse + drawer interaction).</li>
+<li>Streamlit (similar tradeoff to Gradio).</li>
+<li>Static React on a CDN with a separately hosted prediction API (more infra to manage).</li>
+<li>Self hosted Docker on a VPS.</li>
+</ul>
+<p><strong>Tradeoff.</strong> HuggingFace Spaces gives free hosting for ML demos, automatic HTTPS, and a discoverable URL inside the academic ML community. FastAPI plus React gave the freedom to build a non trivial UI (catalog table, detail drawer, on demand prediction, NCBI lookup, accuracy panel) that Gradio or Streamlit would have made painful. The Docker setup is documented in <code>Dockerfile</code> and is portable to any container host if HuggingFace ever becomes unsuitable.</p>
+<hr />
+<h1>3. What the architecture optimises for</h1>
+<p>Three guiding principles run through the design choices above.</p>
+<ul>
+<li><strong>Reproducibility over peak performance.</strong> Every layer writes a parquet so that any stage can be re-run independently. The pipeline can be torn down and rebuilt from BacDive plus NCBI alone in roughly 24 hours, not weeks.</li>
+<li><strong>Honest comparability.</strong> Family grouped CV, an explicit pre-PTPE ablation baseline, a same split GenomeSPOT bake off, and a public marker sequence corpus release all exist so that the reported numbers are auditable by reviewers. The manuscript and the README both state explicitly which comparisons are same split, which are published numbers, and which are still pending.</li>
+<li><strong>Per target model selection over a single universal model.</strong> Three years of attempts to build a "phenotype foundation model" have shown that different targets need different inductive biases. The hybrid predictor encodes this: tabular features dominate the continuous targets, LoRA on marker proteins dominates the oxygen classification. The system selects the strongest validated head for each target rather than choosing a single architecture that is mediocre at all of them.</li>
+</ul>
+<hr />
+<h1>4. What the architecture leaves open</h1>
+<p>The same parquet boundaries make several future extensions cheap:</p>
+<ul>
+<li><strong>Adding a new feature path</strong> is an additive operation: write a new script that produces a per genome parquet with <code>genome_accession</code> as the key, then <code>scripts/31_merge_features.py</code> joins it automatically.</li>
+<li><strong>Swapping the PLM</strong> (ESM-2 to Evo 2, for example) only touches <code>scripts/modal_per_marker_embed.py</code> and <code>scripts/modal_train_lora.py</code>; the downstream tabular and serving layers are untouched.</li>
+<li><strong>Replacing GroupKFold with leave one phylum out</strong> is a one line change in <code>src/microbe_model/train/baseline.py</code>.</li>
+<li><strong>Wet lab feedback loop</strong> would require persisting strain / medium / outcome triples in a new artifact and retraining; the data layer already supports this without any restructuring.</li>
+</ul>
+<p>These are deliberate consequences of choosing parquet boundaries between layers over a tightly coupled end to end pipeline.</p>
+</body></html>
