@@ -133,11 +133,21 @@ The final deployed catalog contains 5,000 unique genomes, with oxygen source cou
 
 The media recommender remains a separate tabular model family trained from BacDive strain medium associations. The current deployment includes 40 per medium binary classifiers. Across the 39 media with finite held out metrics, median ROC AUC is 0.849 and median PR AUC is 0.138. These PR AUC values reflect the strong class imbalance of medium usage labels (median 238 positives per medium, range 102 3,434), so media recommendations should be interpreted as prioritized experimental candidates rather than calibrated probabilities of growth.
 
+On a separate 5-fold family-heldout dry-lab benchmark (21,050 strains, 40 media; full results in `artifacts/media_recommender_drylab_benchmark.md`), the recommender recovers at least one known medium in the top 5 for 77.5% of evaluable strains, versus 37.2% for a taxonomic-popularity baseline and 36.6% for a global-popularity baseline. Table 3 reports the full ranking metrics.
+
+**Table 3.** Medium recommender vs popularity baselines, 5-fold family-heldout.
+
+| Method | MRR | Hit@1 | Hit@3 | Hit@5 |
+|---|---:|---:|---:|---:|
+| **XGBoost recommender (this work)** | **0.588** | **0.450** | **0.660** | **0.775** |
+| Taxonomic popularity baseline | 0.250 | 0.086 | 0.259 | 0.372 |
+| Global popularity baseline | 0.243 | 0.080 | 0.250 | 0.366 |
+
 ## 2.7 GenomeSPOT external benchmark
 
 We benchmarked GenomeSPOT on a deterministic 5,000 unique genome subset of the same family grouped held out manifest used above. The subset contains 5,000 temperature labels, 933 pH labels, 779 salt labels, and 2,653 oxygen labels. GenomeSPOT completed all 5,000 genomes with no failed or skipped rows. The raw result table and subset manifest are released as `artifacts/genomespot_5k_benchmark.json` and `artifacts/external_benchmark_manifest_5k.parquet`.
 
-**Table 3.** GenomeSPOT versus this work on held out cultivation condition labels.
+**Table 4.** GenomeSPOT versus this work on held out cultivation condition labels.
 
 | Method | Temperature MAE (°C) | pH MAE | Salt MAE (%) | Oxygen |
 |---|---:|---:|---:|---|
@@ -145,6 +155,28 @@ We benchmarked GenomeSPOT on a deterministic 5,000 unique genome subset of the s
 | GenomeSPOT | 4.39 | 0.61 | 1.98 | Tolerant or not tolerant |
 
 GenomeSPOT is a strong external comparator because it predicts temperature, pH, salinity, and oxygen from genome derived amino acid composition without requiring functional annotation. On this held out subset, however, our model is more accurate for optimum temperature and pH. Salt is close, with a small advantage for our model. Oxygen is not scored as a direct head to head because GenomeSPOT emits a tolerant or not tolerant label, whereas our system predicts BacDive's four oxygen requirement classes.
+
+## 2.8 Prior-work comparison summary
+
+Table 5 consolidates the comparisons reported throughout §2 alongside published numbers from the closest prior-work predictors. Rows are grouped by comparability. "Same split, same rows" rows (GenomeSPOT, popularity baselines) are directly comparable because they were evaluated on the same family-heldout manifest used here. The Koblitz 2025 row reports the best public number from their paper on their 21,168-strain corpus, not on our held-out split, so it is best read as a community anchor rather than a head-to-head. Li 2023 and Máša 2025 are listed for context but cover related rather than identical objectives.
+
+**Table 5.** Prior-work scoreboard across cultivation-condition and medium-recommendation targets.
+
+| Method | T_opt MAE (°C) | pH MAE | Salt MAE (%) | O₂ macro-F1 (4-class) | Medium Hit@5 | Corpus | Comparison basis |
+|---|---:|---:|---:|---:|---:|---:|---|
+| **This work — hybrid** | **2.67** | **0.47** | **1.92** | **0.945**\* | **0.775** | 46K | — |
+| This work — tabular | 2.67 | 0.47 | 1.92 | 0.402 | 0.775 | 46K | — |
+| This work — pre-PTPE | 2.74 | 0.47 | 1.94 | 0.412 | 0.775 | 46K | own ablation |
+| GenomeSPOT | 4.39 | 0.61 | 1.98 | binary only | — | tool | same split, n=5,000 |
+| Koblitz 2025 (Pfam-RF) | ≈ 2.94 | binary | binary | binary 0.85–0.95 | — | 21K | their paper |
+| Li 2023 (KEGG-RF) | — | — | — | — | — | 96 | different task (carbon util.) |
+| Máša 2025 (rule-based) | — | — | — | — | 2 media only | trait-in | trait → medium |
+| Taxonomic popularity | — | — | — | — | 0.372 | — | same split |
+| Global popularity | — | — | — | — | 0.366 | — | same split |
+
+\*LoRA fold 0 only; remaining four folds are pending. Tabular oxygen is the production fallback when HMM-gated marker extraction fails on a genome.
+
+Three caveats are explicit in Table 5. (i) The LoRA oxygen macro-F1 is a single fold; the full five-fold benchmark is part of follow-up work. (ii) GenomeSPOT and Koblitz 2025 report binary oxygen tolerance, so the four-class macro-F1 column is not a like-for-like comparison for those rows; the binary numbers are listed for completeness. (iii) Li 2023 and Máša 2025 are listed to anchor the prior literature on related tasks but cannot be reduced to a single number on this table because their targets differ.
 
 ---
 

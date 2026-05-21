@@ -358,9 +358,45 @@
 <p>We applied the production hybrid predictor to the 5,000 genome uncultured catalog table used by the web application. Temperature, pH, salt, and medium recommendations are preserved from the tabular pipeline; oxygen is overwritten by the all task LoRA oxygen head when HMM gated marker sequences are available. A local marker sequence extraction pass succeeded for 4,999 of 5,000 genomes. One accession (<code>GCA_902364775</code>) failed marker extraction and therefore retains its tabular oxygen prediction.</p>
 <p>The final deployed catalog contains 5,000 unique genomes, with oxygen source counts of 4,999 LoRA and 1 tabular fallback. The LoRA oxygen distribution is 3,026 predicted aerobes and 1,974 predicted anaerobes; mean confidence is 0.921 and median confidence is 0.984. These predictions are stored in <code>artifacts/hybrid_predictions.parquet</code> and overlaid by the FastAPI backend when present, so the user interface exposes both the predicted oxygen label and its source (<code>LoRA</code> or <code>tabular</code>).</p>
 <p>The media recommender remains a separate tabular model family trained from BacDive strain medium associations. The current deployment includes 40 per medium binary classifiers. Across the 39 media with finite held out metrics, median ROC AUC is 0.849 and median PR AUC is 0.138. These PR AUC values reflect the strong class imbalance of medium usage labels (median 238 positives per medium, range 102 3,434), so media recommendations should be interpreted as prioritized experimental candidates rather than calibrated probabilities of growth.</p>
+<p>On a separate 5-fold family-heldout dry-lab benchmark (21,050 strains, 40 media; full results in <code>artifacts/media_recommender_drylab_benchmark.md</code>), the recommender recovers at least one known medium in the top 5 for 77.5% of evaluable strains, versus 37.2% for a taxonomic-popularity baseline and 36.6% for a global-popularity baseline. Table 3 reports the full ranking metrics.</p>
+<p><strong>Table 3.</strong> Medium recommender vs popularity baselines, 5-fold family-heldout.</p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th style="text-align: right;">MRR</th>
+<th style="text-align: right;">Hit@1</th>
+<th style="text-align: right;">Hit@3</th>
+<th style="text-align: right;">Hit@5</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>XGBoost recommender (this work)</strong></td>
+<td style="text-align: right;"><strong>0.588</strong></td>
+<td style="text-align: right;"><strong>0.450</strong></td>
+<td style="text-align: right;"><strong>0.660</strong></td>
+<td style="text-align: right;"><strong>0.775</strong></td>
+</tr>
+<tr>
+<td>Taxonomic popularity baseline</td>
+<td style="text-align: right;">0.250</td>
+<td style="text-align: right;">0.086</td>
+<td style="text-align: right;">0.259</td>
+<td style="text-align: right;">0.372</td>
+</tr>
+<tr>
+<td>Global popularity baseline</td>
+<td style="text-align: right;">0.243</td>
+<td style="text-align: right;">0.080</td>
+<td style="text-align: right;">0.250</td>
+<td style="text-align: right;">0.366</td>
+</tr>
+</tbody>
+</table>
 <h2>2.7 GenomeSPOT external benchmark</h2>
 <p>We benchmarked GenomeSPOT on a deterministic 5,000 unique genome subset of the same family grouped held out manifest used above. The subset contains 5,000 temperature labels, 933 pH labels, 779 salt labels, and 2,653 oxygen labels. GenomeSPOT completed all 5,000 genomes with no failed or skipped rows. The raw result table and subset manifest are released as <code>artifacts/genomespot_5k_benchmark.json</code> and <code>artifacts/external_benchmark_manifest_5k.parquet</code>.</p>
-<p><strong>Table 3.</strong> GenomeSPOT versus this work on held out cultivation condition labels.</p>
+<p><strong>Table 4.</strong> GenomeSPOT versus this work on held out cultivation condition labels.</p>
 <table>
 <thead>
 <tr>
@@ -389,6 +425,117 @@
 </tbody>
 </table>
 <p>GenomeSPOT is a strong external comparator because it predicts temperature, pH, salinity, and oxygen from genome derived amino acid composition without requiring functional annotation. On this held out subset, however, our model is more accurate for optimum temperature and pH. Salt is close, with a small advantage for our model. Oxygen is not scored as a direct head to head because GenomeSPOT emits a tolerant or not tolerant label, whereas our system predicts BacDive's four oxygen requirement classes.</p>
+<h2>2.8 Prior-work comparison summary</h2>
+<p>Table 5 consolidates the comparisons reported throughout §2 alongside published numbers from the closest prior-work predictors. Rows are grouped by comparability. "Same split, same rows" rows (GenomeSPOT, popularity baselines) are directly comparable because they were evaluated on the same family-heldout manifest used here. The Koblitz 2025 row reports the best public number from their paper on their 21,168-strain corpus, not on our held-out split, so it is best read as a community anchor rather than a head-to-head. Li 2023 and Máša 2025 are listed for context but cover related rather than identical objectives.</p>
+<p><strong>Table 5.</strong> Prior-work scoreboard across cultivation-condition and medium-recommendation targets.</p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th style="text-align: right;">T_opt MAE (°C)</th>
+<th style="text-align: right;">pH MAE</th>
+<th style="text-align: right;">Salt MAE (%)</th>
+<th style="text-align: right;">O₂ macro-F1 (4-class)</th>
+<th style="text-align: right;">Medium Hit@5</th>
+<th style="text-align: right;">Corpus</th>
+<th>Comparison basis</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>This work — hybrid</strong></td>
+<td style="text-align: right;"><strong>2.67</strong></td>
+<td style="text-align: right;"><strong>0.47</strong></td>
+<td style="text-align: right;"><strong>1.92</strong></td>
+<td style="text-align: right;"><strong>0.945</strong>*</td>
+<td style="text-align: right;"><strong>0.775</strong></td>
+<td style="text-align: right;">46K</td>
+<td>—</td>
+</tr>
+<tr>
+<td>This work — tabular</td>
+<td style="text-align: right;">2.67</td>
+<td style="text-align: right;">0.47</td>
+<td style="text-align: right;">1.92</td>
+<td style="text-align: right;">0.402</td>
+<td style="text-align: right;">0.775</td>
+<td style="text-align: right;">46K</td>
+<td>—</td>
+</tr>
+<tr>
+<td>This work — pre-PTPE</td>
+<td style="text-align: right;">2.74</td>
+<td style="text-align: right;">0.47</td>
+<td style="text-align: right;">1.94</td>
+<td style="text-align: right;">0.412</td>
+<td style="text-align: right;">0.775</td>
+<td style="text-align: right;">46K</td>
+<td>own ablation</td>
+</tr>
+<tr>
+<td>GenomeSPOT</td>
+<td style="text-align: right;">4.39</td>
+<td style="text-align: right;">0.61</td>
+<td style="text-align: right;">1.98</td>
+<td style="text-align: right;">binary only</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">tool</td>
+<td>same split, n=5,000</td>
+</tr>
+<tr>
+<td>Koblitz 2025 (Pfam-RF)</td>
+<td style="text-align: right;">≈ 2.94</td>
+<td style="text-align: right;">binary</td>
+<td style="text-align: right;">binary</td>
+<td style="text-align: right;">binary 0.85–0.95</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">21K</td>
+<td>their paper</td>
+</tr>
+<tr>
+<td>Li 2023 (KEGG-RF)</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">96</td>
+<td>different task (carbon util.)</td>
+</tr>
+<tr>
+<td>Máša 2025 (rule-based)</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">2 media only</td>
+<td style="text-align: right;">trait-in</td>
+<td>trait → medium</td>
+</tr>
+<tr>
+<td>Taxonomic popularity</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">0.372</td>
+<td style="text-align: right;">—</td>
+<td>same split</td>
+</tr>
+<tr>
+<td>Global popularity</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">0.366</td>
+<td style="text-align: right;">—</td>
+<td>same split</td>
+</tr>
+</tbody>
+</table>
+<p>*LoRA fold 0 only; remaining four folds are pending. Tabular oxygen is the production fallback when HMM-gated marker extraction fails on a genome.</p>
+<p>Three caveats are explicit in Table 5. (i) The LoRA oxygen macro-F1 is a single fold; the full five-fold benchmark is part of follow-up work. (ii) GenomeSPOT and Koblitz 2025 report binary oxygen tolerance, so the four-class macro-F1 column is not a like-for-like comparison for those rows; the binary numbers are listed for completeness. (iii) Li 2023 and Máša 2025 are listed to anchor the prior literature on related tasks but cannot be reduced to a single number on this table because their targets differ.</p>
 <hr />
 <h1>3. Discussion</h1>
 <p><strong>What this work establishes.</strong> Our framework demonstrates that (i) at BacDive scale (46K strains, 22.3K unique genomes), a multi source feature fusion with 6,313 features per genome trains stably in 5 fold family grouped cross validation; (ii) phenotype targeted PLM embeddings, computed by HMM gating which proteins to embed and pooling within phenotype category, add modest but measurable improvement on regression targets (T_opt MAE improves by 2.4%, pH MAE by 1.0%, salt MAE by 1.1%); (iii) frozen mean pool does not deliver lift on the oxygen classification task, but LoRA fine tuning over the same HMM gated marker sequences does, raising fold 0 oxygen macro F1 to 0.945; (iv) phenotype specific model selection yields a deployed hybrid predictor for 5,000 uncultured catalog genomes; and (v) a 5,000 genome GenomeSPOT benchmark shows stronger temperature and pH accuracy for this work on the same held out manifest.</p>
