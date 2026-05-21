@@ -82,7 +82,9 @@ and [artifacts/carveme_smoke_status.md](artifacts/carveme_smoke_status.md).
 
 ### Headline accuracy gains
 
-On every comparison whose splits and baselines are controlled tightly enough to support a direct percent comparison, this work is more accurate than the prior-work predictor.
+In direct comparison on identical held out strains, the medium recommender is **108% more accurate** at Hit@5 than the strongest popularity baseline (77.5% vs 37.2%), and the LoRA oxygen head is **135% more accurate** at four class macro F1 than the tabular oxygen head on the same fold (0.945 vs 0.402). Against the GenomeSPOT external tool on the same 5,000 genome family heldout subset, temperature MAE is **39% lower**, pH MAE is **23% lower**, and salt MAE is **3% lower**.
+
+On every comparison whose splits and baselines are controlled tightly enough to support a direct percent comparison, this work is more accurate than the prior work predictor.
 
 | vs comparator | Target | Comparator | This work | **Δ relative** |
 |---|---|---:|---:|---:|
