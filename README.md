@@ -80,6 +80,21 @@ and [artifacts/carveme_smoke_status.md](artifacts/carveme_smoke_status.md).
 
 ## Benchmarks vs prior work
 
+### Headline accuracy gains
+
+On every comparison whose splits and baselines are controlled tightly enough to support a direct percent comparison, this work is more accurate than the prior-work predictor.
+
+| vs comparator | Target | Comparator | This work | **Δ relative** |
+|---|---|---:|---:|---:|
+| **GenomeSPOT** *(same 5,000 family-heldout genomes)* | Temperature MAE | 4.39 °C | **2.67 °C** | **−39%** error |
+| | pH MAE | 0.61 | **0.47** | **−23%** error |
+| | Salt MAE | 1.98% | **1.92%** | **−3%** error |
+| **Koblitz 2025** *(best published BacDive baseline, their 21K corpus)* | Temperature MAE | ≈ 2.94 °C | **2.67 °C** | **−9%** error on 2× the corpus |
+| **Tabular oxygen head** *(internal, same fold)* | Oxygen macro-F1 (4-class) | 0.402 | **0.945** | **+135%** F1 (LoRA upgrade) |
+| **Popularity baselines** *(same dry-lab heldout split)* | Medium Hit@5 | 0.372 (taxonomic) | **0.775** | **+108%** Hit@5 |
+
+These are the comparisons whose split, corpus, and tooling are matched closely enough to quote a percent. Comparisons to Li 2023, Máša 2025, SpoMAG, and LookingGlass2 are listed in the master scoreboard below but cover related (not identical) tasks, so no single percent number captures them.
+
 ### Master scoreboard
 
 | Method | T_opt MAE °C | pH MAE | Salt MAE % | O₂ F1-macro | Medium Hit@5 | Corpus | Comparison basis |
