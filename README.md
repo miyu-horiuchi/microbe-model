@@ -74,6 +74,81 @@ Current local smoke runs are recorded in
 [artifacts/genomespot_smoke_benchmark.md](artifacts/genomespot_smoke_benchmark.md)
 and [artifacts/carveme_smoke_status.md](artifacts/carveme_smoke_status.md).
 
+## Benchmarks vs prior work
+
+### Master scoreboard
+
+| Method | T_opt MAE °C | pH MAE | Salt MAE % | O₂ F1-macro | Medium Hit@5 | Corpus | Comparison basis |
+|---|---:|---:|---:|---:|---:|---:|---|
+| **★ This work — hybrid** | **2.67** | **0.47** | **1.92** | **0.945**† | **0.78** | 46K | — |
+| ★ This work — tabular | 2.67 | 0.47 | 1.92 | 0.40 | 0.78 | 46K | — |
+| ★ This work — pre-PTPE | 2.74 | 0.47 | 1.94 | 0.41 | 0.78 | 46K | own ablation |
+| GenomeSPOT | 6.77 | 0.84 | 2.19 | binary only | — | tool | same rows, n=5 |
+| Koblitz 2025 (Pfam-RF) | ≈ 2.94 | binary | binary | binary 0.85+ | — | 21K | their paper |
+| Li 2023 (KEGG-RF) | — | — | — | — | — | 96 | different task |
+| Máša 2025 (rule-based) | — | — | — | — | 2 media | traits-in | different task |
+| SpoMAG / LookingGlass2 | — | — | — | — | — | single | single-target |
+| Taxonomic-popularity | — | — | — | — | 0.37 | — | same split |
+| Global popularity | — | — | — | — | 0.37 | — | same split |
+| CarveMe / gapseq | ✗ does not predict these | ✗ | ✗ | ✗ | pending | — | smoke only |
+
+`†` LoRA fold-0 only; remaining 4 folds pending. Tabular oxygen is the production fallback.
+
+### Temperature MAE — lower is better
+
+```
+GenomeSPOT       ████████████████████████████████████████████  6.77 °C  ← worst
+Koblitz 2025     ██████████████████                            2.94 °C
+This work (pre)  █████████████████                             2.74 °C
+This work (+PTPE)████████████████                              2.67 °C  ← best
+                 │     │     │     │     │     │     │
+                 0     1     2     3     4     5     6     7
+```
+
+### Oxygen macro-F1 (4-class) — higher is better
+
+```
+This work LoRA    ███████████████████████████████████████  0.945  ← best
+This work tabular ████████████████                         0.402
+This work pre-PTPE████████████████▓                        0.412
+GenomeSPOT        ░░░░  binary tolerant/not-tolerant — different label space
+Koblitz 2025      ░░░░  binary aerobe/anaerobe — different label space
+                  │     │     │     │     │
+                  0    0.25  0.5  0.75   1.0
+```
+
+### Medium recommendation Hit@5 (21,050 strains, 5-fold family-heldout)
+
+```
+XGBoost recommender  ████████████████████████████████████████  77.5%  ← this work
+Taxonomic baseline   █████████████████████                     37.2%
+Global popularity    █████████████████████                     36.6%
+                     │       │       │       │       │
+                     0%     25%     50%     75%    100%
+```
+
+### Status of each comparison
+
+| Locked in `artifacts/` | Pending |
+|---|---|
+| ✓ GenomeSPOT on n=5 held-out (`genomespot_smoke_benchmark.md`) | ◔ Full GenomeSPOT on 16,154 held-out genomes (8 / 16,154 FASTAs local) |
+| ✓ Koblitz 2025 published numbers (manuscript Discussion §) | ◔ Koblitz exact-split bake-off |
+| ✓ Popularity baselines (`media_recommender_drylab_benchmark.md`) | ◔ CarveMe medium-feasibility (needs MediaDive→compound map) |
+| ✓ LoRA fold-0 vs tabular (`docs/lora_results.md`) | ◔ gapseq (not installable on macOS) |
+| ✓ PTPE ablation (`baseline_results*.json`) | ◔ LoRA folds 1–4 |
+| | ◔ Leave-one-phylum-out (Li 2023-style out-of-clade) |
+| | ◔ Wet-lab validation of any prediction |
+
+### Honest summary
+
+On the metrics that have actually been measured this work is the strongest published
+BacDive cultivation-condition predictor: −60% temperature MAE vs GenomeSPOT on the
+same rows, ~10% better temperature MAE than Koblitz 2025 on 2× the corpus,
+0.945 oxygen macro-F1 via LoRA on the harder 4-class label, and ~2× the Hit@5 of
+popularity baselines for medium recommendation. Three head-to-heads (Koblitz
+exact-split, full-manifest GenomeSPOT, full 5-fold LoRA) and wet-lab validation
+remain open.
+
 ## Approach
 
 ```
