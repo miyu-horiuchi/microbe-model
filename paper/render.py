@@ -70,6 +70,7 @@ def main() -> None:
     }
     h1.paper-title {
       text-align: center;
+      text-transform: lowercase;
       font-variant: small-caps;
       font-weight: bold;
       font-size: 18pt;
