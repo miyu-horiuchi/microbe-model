@@ -15,6 +15,8 @@ import json
 import os
 import re
 import sys
+import time
+from functools import lru_cache
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import Any
@@ -183,27 +185,48 @@ def _looks_like_accession(target: str) -> bool:
     return bool(_ACCESSION_RE.match(target.strip()))
 
 
-def _ncbi_assembly_hits(q: str, retmax: int = 10) -> list[dict]:
-    """Resolve an organism name to NCBI assembly accessions, best (most complete) first."""
+def _eutils_get(endpoint: str, params: dict, *, retries: int = 3) -> dict:
+    """GET an E-utilities endpoint with an NCBI API key (if set) and retry on 429/5xx.
+
+    Anonymous eutils is limited to 3 req/sec (10/sec with NCBI_API_KEY), so transient
+    429s are expected under concurrent load. Back off and retry rather than surfacing
+    the rate limit to the user.
+    """
     api_key = os.environ.get("NCBI_API_KEY")
-    common = {"api_key": api_key} if api_key else {}
-    r = requests.get(
-        f"{EUTILS_BASE}/esearch.fcgi",
-        params={"db": "assembly", "term": f"{q}[Organism] AND latest[filter]",
-                "retmode": "json", "retmax": retmax, **common},
-        timeout=20,
+    if api_key:
+        params = {**params, "api_key": api_key}
+    last_exc: Exception | None = None
+    for attempt in range(retries):
+        try:
+            r = requests.get(f"{EUTILS_BASE}/{endpoint}", params=params, timeout=20)
+            r.raise_for_status()
+            return r.json()
+        except requests.RequestException as e:
+            last_exc = e
+            status = getattr(e.response, "status_code", None)
+            if status == 429 or (status is not None and status >= 500):
+                time.sleep(0.5 * (2 ** attempt))  # 0.5s, 1s, 2s
+                continue
+            raise
+    raise last_exc  # type: ignore[misc]
+
+
+@lru_cache(maxsize=512)
+def _ncbi_assembly_hits_cached(q_norm: str, retmax: int) -> tuple[dict, ...]:
+    """Cached core resolver. Keyed on the normalized query; returns a hashable tuple."""
+    data = _eutils_get(
+        "esearch.fcgi",
+        {"db": "assembly", "term": f"{q_norm}[Organism] AND latest[filter]",
+         "retmode": "json", "retmax": retmax},
     )
-    r.raise_for_status()
-    ids = r.json().get("esearchresult", {}).get("idlist", [])
+    ids = data.get("esearchresult", {}).get("idlist", [])
     if not ids:
-        return []
-    r = requests.get(
-        f"{EUTILS_BASE}/esummary.fcgi",
-        params={"db": "assembly", "id": ",".join(ids), "retmode": "json", **common},
-        timeout=20,
+        return ()
+    data = _eutils_get(
+        "esummary.fcgi",
+        {"db": "assembly", "id": ",".join(ids), "retmode": "json"},
     )
-    r.raise_for_status()
-    result = r.json().get("result", {})
+    result = data.get("result", {})
     out = []
     for uid in result.get("uids", []):
         doc = result.get(uid, {})
@@ -214,7 +237,13 @@ def _ncbi_assembly_hits(q: str, retmax: int = 10) -> list[dict]:
         })
     rank = {"Complete Genome": 0, "Chromosome": 1, "Scaffold": 2, "Contig": 3}
     out.sort(key=lambda r: rank.get(r["level"], 99))
-    return out
+    return tuple(out)
+
+
+def _ncbi_assembly_hits(q: str, retmax: int = 10) -> list[dict]:
+    """Resolve an organism name to NCBI assembly accessions, best (most complete) first."""
+    hits = _ncbi_assembly_hits_cached(q.strip().lower(), retmax)
+    return [dict(h) for h in hits]  # fresh copies so callers can't mutate the cache
 
 
 # ──────────────────────────────────────────────────────────────────────
