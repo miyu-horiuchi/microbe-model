@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 from pathlib import Path
 from tempfile import NamedTemporaryFile
@@ -172,6 +173,51 @@ class CatalogRow(BaseModel):
 
 
 # ──────────────────────────────────────────────────────────────────────
+# NCBI helpers
+# ──────────────────────────────────────────────────────────────────────
+# NCBI assembly accessions: GCA_/GCF_ followed by 9 digits, optional .version
+_ACCESSION_RE = re.compile(r"^GC[AF]_\d{9}(\.\d+)?$", re.IGNORECASE)
+
+
+def _looks_like_accession(target: str) -> bool:
+    return bool(_ACCESSION_RE.match(target.strip()))
+
+
+def _ncbi_assembly_hits(q: str, retmax: int = 10) -> list[dict]:
+    """Resolve an organism name to NCBI assembly accessions, best (most complete) first."""
+    api_key = os.environ.get("NCBI_API_KEY")
+    common = {"api_key": api_key} if api_key else {}
+    r = requests.get(
+        f"{EUTILS_BASE}/esearch.fcgi",
+        params={"db": "assembly", "term": f"{q}[Organism] AND latest[filter]",
+                "retmode": "json", "retmax": retmax, **common},
+        timeout=20,
+    )
+    r.raise_for_status()
+    ids = r.json().get("esearchresult", {}).get("idlist", [])
+    if not ids:
+        return []
+    r = requests.get(
+        f"{EUTILS_BASE}/esummary.fcgi",
+        params={"db": "assembly", "id": ",".join(ids), "retmode": "json", **common},
+        timeout=20,
+    )
+    r.raise_for_status()
+    result = r.json().get("result", {})
+    out = []
+    for uid in result.get("uids", []):
+        doc = result.get(uid, {})
+        out.append({
+            "accession": str(doc.get("assemblyaccession", "")),
+            "organism": str(doc.get("organism", "")),
+            "level": str(doc.get("assemblystatus", "")),
+        })
+    rank = {"Complete Genome": 0, "Chromosome": 1, "Scaffold": 2, "Contig": 3}
+    out.sort(key=lambda r: rank.get(r["level"], 99))
+    return out
+
+
+# ──────────────────────────────────────────────────────────────────────
 # Endpoints
 # ──────────────────────────────────────────────────────────────────────
 @app.get("/api/health")
@@ -240,39 +286,10 @@ def ncbi_search(q: str, retmax: int = 10):
     """Resolve an organism name to NCBI assembly accessions."""
     if not q.strip():
         return {"hits": []}
-    api_key = os.environ.get("NCBI_API_KEY")
-    common = {"api_key": api_key} if api_key else {}
     try:
-        r = requests.get(
-            f"{EUTILS_BASE}/esearch.fcgi",
-            params={"db": "assembly", "term": f"{q}[Organism] AND latest[filter]",
-                    "retmode": "json", "retmax": retmax, **common},
-            timeout=20,
-        )
-        r.raise_for_status()
-        ids = r.json().get("esearchresult", {}).get("idlist", [])
-        if not ids:
-            return {"hits": []}
-        r = requests.get(
-            f"{EUTILS_BASE}/esummary.fcgi",
-            params={"db": "assembly", "id": ",".join(ids), "retmode": "json", **common},
-            timeout=20,
-        )
-        r.raise_for_status()
-        result = r.json().get("result", {})
+        return {"hits": _ncbi_assembly_hits(q, retmax)}
     except requests.RequestException as e:
         raise HTTPException(status_code=502, detail=f"NCBI search failed: {e}") from e
-    out = []
-    for uid in result.get("uids", []):
-        doc = result.get(uid, {})
-        out.append({
-            "accession": str(doc.get("assemblyaccession", "")),
-            "organism": str(doc.get("organism", "")),
-            "level": str(doc.get("assemblystatus", "")),
-        })
-    rank = {"Complete Genome": 0, "Chromosome": 1, "Scaffold": 2, "Contig": 3}
-    out.sort(key=lambda r: rank.get(r["level"], 99))
-    return {"hits": out}
 
 
 @app.post("/api/predict")
@@ -291,7 +308,25 @@ def predict(req: PredictRequest):
             tmp_path = tmp.name
             feats, accession, n_contigs = _load_genome_features(tmp.name)
         else:
-            feats, accession, n_contigs = _load_genome_features(target)
+            # Bare accession → fetch directly. Anything else (e.g. "Thermus
+            # thermophilus") is treated as an organism name and resolved to its
+            # best NCBI assembly accession before fetching.
+            fetch_target = target
+            if not _looks_like_accession(target) and not Path(target).exists():
+                try:
+                    hits = _ncbi_assembly_hits(target, retmax=5)
+                except requests.RequestException as e:
+                    raise HTTPException(
+                        status_code=502, detail=f"NCBI lookup failed: {e}"
+                    ) from e
+                if not hits:
+                    raise HTTPException(
+                        status_code=404,
+                        detail=f'No NCBI genome found for "{target}". '
+                               f"Try an NCBI accession (e.g. GCF_000005845.2) or a FASTA.",
+                    )
+                fetch_target = hits[0]["accession"]
+            feats, accession, n_contigs = _load_genome_features(fetch_target)
 
         feats_series = pd.Series(feats)
         phenotypes = _tag_prediction_sources(_predict_phenotypes(feats_series))

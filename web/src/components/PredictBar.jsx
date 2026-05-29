@@ -6,7 +6,7 @@ import { tempColor, pHColor, saltColor } from '../theme.js';
 const QUICK_TRY = [
   { label: 'Thermus thermophilus', value: 'Thermus thermophilus' },
   { label: 'GCF_000005845.2', value: 'GCF_000005845.2' },
-  { label: 'Pyrococcus sp. VENT-07', value: 'Pyrococcus' },
+  { label: 'Pyrococcus furiosus', value: 'Pyrococcus furiosus' },
 ];
 
 export default function PredictBar({ result, setResult }) {
